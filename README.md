@@ -294,3 +294,14 @@ snippets/
 ## License
 
 MIT © [Fair Yan](https://github.com/yanhuifair)
+
+
+## Star History
+
+<a href="https://www.star-history.com/?repos=yanhuifair%2FGodotShaderForVScode&type=date&legend=top-left">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=yanhuifair/GodotShaderForVScode&type=date&theme=dark&legend=top-left" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=yanhuifair/GodotShaderForVScode&type=date&legend=top-left" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=yanhuifair/GodotShaderForVScode&type=date&legend=top-left" />
+ </picture>
+</a>
