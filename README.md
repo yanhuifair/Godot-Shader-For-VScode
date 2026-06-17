@@ -2,16 +2,46 @@
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.120%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.89-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.90-2ea44f)
 ![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/GodotShaderForVScode?style=flat-square)
+[![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
 
 </div>
+
+<p align="center">
+  <img alt="logo" src="images/logo.png" width="128" />
+</p>
 
 # Godot Shader for VS Code
 
 The best Godot Shader development extension — 20 providers, 160+ built-ins, 74 functions, 65 snippets, fully bilingual (zh/en).
+
+---
+
+## Install
+
+[![Marketplace](https://img.shields.io/visual-studio-marketplace/v/fairyan.godot-shader-for-vscode?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
+
+### Method 1: VS Code Marketplace (Recommended)
+
+1. Visit [VS Code Marketplace](https://marketplace.visualstudio.com/) and search for **Godot Shader for VS Code** or open directly: [https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
+2. Or open VS Code, click the **Extensions** icon in the Activity Bar (or press `Ctrl+Shift+X`), then search for **Godot Shader for VS Code**
+3. Click **Install**
+
+### Method 2: Build from Source
+
+```bash
+git clone https://github.com/yanhuifair/GodotShaderForVScode.git
+cd GodotShaderForVScode
+npm install
+npx vsce package
+```
+
+Then in VS Code: `Ctrl+Shift+P` → **Extensions: Install from VSIX...** → select the generated `.vsix` file.
+
+> After installation, `.gdshader` and `.gdshaderinc` files are automatically activated — no extra configuration needed.
 
 ---
 
@@ -198,16 +228,6 @@ void fragment() {
 
 ---
 
-## Install
-
-```bash
-code --install-extension FairYan.godot-shader-vscode
-```
-
-Files with `.gdshader` / `.gdshaderinc` extensions are automatically activated.
-
----
-
 ## Usage
 
 | Shortcut | Action |
@@ -295,6 +315,13 @@ snippets/
 
 MIT © [Fair Yan](https://github.com/yanhuifair)
 
+---
+
+## Appreciate
+<div align="left">
+  <img alt="Appreciate" src="images/appreciate.JPG" width="300" />
+</div>
+
 
 ## Star History
 
@@ -305,3 +332,5 @@ MIT © [Fair Yan](https://github.com/yanhuifair)
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=yanhuifair/GodotShaderForVScode&type=date&legend=top-left" />
  </picture>
 </a>
+
+
