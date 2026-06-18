@@ -3,4 +3,5 @@ out/
 *.vsix
 .DS_Store
 auto-version.js
+test/
 

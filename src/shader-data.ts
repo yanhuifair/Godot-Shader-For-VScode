@@ -57,7 +57,7 @@ export const GODOT_SHADER_BUILTINS: BuiltinsMap = {
         { name: "VIEW_MONO_LEFT", type: "int", description: "单目/左眼常量（0）" },
         { name: "VIEW_RIGHT", type: "int", description: "右眼常量（1）" },
         { name: "EYE_OFFSET", type: "vec3", description: "眼睛偏移 / 世界空间（多视图渲染）" },
-        { name: "VERTEX_ID", type: "uint", description: "顶点缓冲区中的顶点索引" },
+        { name: "VERTEX_ID", type: "int", description: "顶点缓冲区中的顶点索引" },
         { name: "CUSTOM0", type: "vec4", description: "自定义顶点数据通道 0" },
         { name: "CUSTOM1", type: "vec4", description: "自定义顶点数据通道 1" },
         { name: "CUSTOM2", type: "vec4", description: "自定义顶点数据通道 2" },
@@ -307,17 +307,12 @@ export const GODOT_SHADER_BUILTINS: BuiltinsMap = {
         { name: "VIEW", type: "vec3", description: "从片段到相机的归一化向量 / 视图空间（只读）" }
     ],
     
-    // 光源内置变量（输出）
+    // 光源内置变量（输出，spatial light() 中可写）
     light_output: [
         { name: "ALPHA", type: "float", description: "透明度（写入后材质进入透明管道）" },
         { name: "ATTENUATION", type: "float", description: "光照衰减（读写）" },
         { name: "DIFFUSE_LIGHT", type: "vec3", description: "漫反射光照结果（累加，使用 +=）" },
-        { name: "LIGHT", type: "vec3", description: "光照颜色（读写）" },
-        { name: "LIGHT_DIFFUSE", type: "vec3", description: "漫反射光照（读写，旧版兼容）" },
-        { name: "LIGHT_ENERGY", type: "float", description: "光源能量（读写）" },
-        { name: "LIGHT_SPECULAR", type: "vec3", description: "镜面反射光照（读写，旧版兼容）" },
-        { name: "SPECULAR_LIGHT", type: "vec3", description: "镜面反射光照结果（累加，使用 +=）" },
-        { name: "SHADOW_MODULATE", type: "vec4", description: "阴影调制颜色（仅 CanvasItem，写入以修改此点阴影颜色）" }
+        { name: "SPECULAR_LIGHT", type: "vec3", description: "镜面反射光照结果（累加，使用 +=）" }
     ]
 };
 
@@ -343,8 +338,7 @@ export const GODOT_SHADER_FUNCTIONS = [
     { name: "tan", signature: "tan(float x)", description: "正切函数（x 为弧度）" },
     { name: "asin", signature: "asin(float x)", description: "反正弦函数（返回 [-π/2, π/2]）" },
     { name: "acos", signature: "acos(float x)", description: "反余弦函数（返回 [0, π]）" },
-    { name: "atan", signature: "atan(float y, float x)", description: "反正切函数（返回 [-π, π]）" },
-    { name: "atan2", signature: "atan2(float y, float x)", description: "带象限判断的反正切" },
+    { name: "atan", signature: "atan(float y, float x)", description: "反正切函数，支持单参数和双参数（atan(y/x) 或 atan(y, x)）" },
     
     // 数学函数 - 双曲函数
     { name: "sinh", signature: "sinh(float x)", description: "双曲正弦函数" },
@@ -391,13 +385,13 @@ export const GODOT_SHADER_FUNCTIONS = [
     { name: "inverse", signature: "inverse(matX m)", description: "矩阵求逆" },
     { name: "outerProduct", signature: "outerProduct(vecX a, vecY b)", description: "外积（返回 matX 矩阵）" },
     
-    // 构造函数（支持多重重载形式）
-    { name: "vec2", signature: "vec2(float) | vec2(float, float) | vec2(vec3) | vec2(vec4)", description: "创建 2 分量向量。支持标量填充、两个标量、或从高维向量截断" },
-    { name: "vec3", signature: "vec3(float) | vec3(float, float, float) | vec3(vec2, float) | vec3(float, vec2) | vec3(vec4)", description: "创建 3 分量向量。支持标量填充、三个标量、vec2+标量组合、或从 vec4 截断" },
-    { name: "vec4", signature: "vec4(float) | vec4(float, float, float, float) | vec4(vec2, float, float) | vec4(vec3, float) | vec4(float, vec3)", description: "创建 4 分量向量。支持标量填充、四个标量、vec2+两个标量、vec3+标量组合" },
-    { name: "mat2", signature: "mat2(float) | mat2(vec2, vec2) | mat2(mat3) | mat2(mat4)", description: "创建 2x2 矩阵。支持标量对角填充、列向量、或从高维矩阵截断" },
-    { name: "mat3", signature: "mat3(float) | mat3(vec3, vec3, vec3) | mat3(mat4)", description: "创建 3x3 矩阵。支持标量对角填充、列向量、或从 mat4 截断" },
-    { name: "mat4", signature: "mat4(float) | mat4(vec4, vec4, vec4, vec4)", description: "创建 4x4 矩阵。支持标量对角填充或四个列向量" },
+    // 构造函数（支持多重重载形式，Godot 4 不允许从高维截断）
+    { name: "vec2", signature: "vec2(float) | vec2(float, float)", description: "创建 2 分量向量" },
+    { name: "vec3", signature: "vec3(float) | vec3(float, float, float) | vec3(vec2, float) | vec3(float, vec2)", description: "创建 3 分量向量" },
+    { name: "vec4", signature: "vec4(float) | vec4(float, float, float, float) | vec4(vec2, float, float) | vec4(vec3, float) | vec4(float, vec3)", description: "创建 4 分量向量" },
+    { name: "mat2", signature: "mat2(float) | mat2(vec2, vec2)", description: "创建 2x2 矩阵" },
+    { name: "mat3", signature: "mat3(float) | mat3(vec3, vec3, vec3)", description: "创建 3x3 矩阵" },
+    { name: "mat4", signature: "mat4(float) | mat4(vec4, vec4, vec4, vec4)", description: "创建 4x4 矩阵" },
     { name: "bool", signature: "bool(int|uint|float|bool x)", description: "转换为布尔值。非零为 true，零为 false" },
     { name: "int", signature: "int(float|uint|bool x)", description: "转换为有符号整数。浮点数截断，布尔值 true->1 / false->0" },
     { name: "uint", signature: "uint(int|float|bool x)", description: "转换为无符号整数。浮点数截断，布尔值 true->1 / false->0" },
@@ -407,22 +401,10 @@ export const GODOT_SHADER_FUNCTIONS = [
     { name: "radians", signature: "radians(float degrees)", description: "角度转弧度" },
     { name: "degrees", signature: "degrees(float radians)", description: "弧度转角度" },
     
-    // 噪声函数（Godot 4.x 支持多种噪声类型，取决于项目设置）
-    { name: "noise", signature: "noise(vecX pos)", description: "噪声函数（1D-4D）。类型取决于项目设置中的噪声类型，返回 [-1, 1]" },
-    { name: "noise_perlin", signature: "noise_perlin(vecX pos)", description: "Perlin 噪声（1D-4D），返回 [-1, 1]" },
-    { name: "noise_simplex", signature: "noise_simplex(vecX pos)", description: "Simplex 噪声（1D-4D），返回 [-1, 1]" },
-    
     // 导数函数（仅在 fragment/light 函数中可用）
-    { name: "dfdx", signature: "dfdx(vecX p)", description: "屏幕空间 x 方向偏导数（dFdx）。仅在 fragment() 和 light() 中可用" },
-    { name: "dfdy", signature: "dfdy(vecX p)", description: "屏幕空间 y 方向偏导数（dFdy）。仅在 fragment() 和 light() 中可用" },
-    { name: "fwidth", signature: "fwidth(vecX p)", description: "偏导数绝对值之和：abs(dFdx(p)) + abs(dFdy(p))。用于估算变化率" },
-    
-    // 随机数函数
-    { name: "hash", signature: "hash(vecX p)", description: "哈希函数（返回 0..1）" },
-    { name: "rand", signature: "rand(vecX p)", description: "随机数（0..1，基于输入）" },
-    
-    // 光照函数
-    { name: "attenuation", signature: "attenuation(float distance, float inv_range, float decay)", description: "光照衰减计算" }
+    { name: "dFdx", signature: "dFdx(vecX p)", description: "屏幕空间 x 方向偏导数。仅在 fragment() 和 light() 中可用" },
+    { name: "dFdy", signature: "dFdy(vecX p)", description: "屏幕空间 y 方向偏导数。仅在 fragment() 和 light() 中可用" },
+    { name: "fwidth", signature: "fwidth(vecX p)", description: "偏导数绝对值之和：abs(dFdx(p)) + abs(dFdy(p))。用于估算变化率" }
 ];
 
 export const GODOT_SHADER_TYPES = [
@@ -477,26 +459,27 @@ export const GODOT_SHADER_KEYWORD_INFO: {[key: string]: {category: string, desc:
 };
 
 export const GODOT_SHADER_HINTS = [
-    // Texture hints
-    "hint_white_texture", "hint_black_albedo", "hint_normal",
-    "hint_depth_texture", "hint_screen_texture", "hint_black",
-    "hint_default_white", "hint_default_black", "hint_default_transparent",
-    "hint_anisotropy", "hint_albedo",
-    "hint_roughness_r", "hint_roughness_g", "hint_roughness_b",
-    "hint_roughness_a", "hint_roughness_normal",
-    // Value hints
+    // Color (vec3/vec4/sampler2D)
     "source_color",
-    "hint_color", "hint_range", "hint_enum", "hint_multiline_text",
-    "hint_file", "hint_dir", "hint_exp_range", "hint_linked_port",
+    // Texture defaults
+    "hint_default_white", "hint_default_black", "hint_default_transparent",
+    // Texture type
+    "hint_normal", "hint_depth_texture", "hint_screen_texture",
+    "hint_anisotropy", "hint_normal_roughness_texture",
+    // Roughness limiter
+    "hint_roughness_r", "hint_roughness_g", "hint_roughness_b",
+    "hint_roughness_a", "hint_roughness_normal", "hint_roughness_gray",
+    // Value range
+    "hint_range", "hint_enum",
+    // String
+    "hint_multiline_text", "hint_file", "hint_dir",
     // Filter
     "filter_nearest", "filter_linear",
     "filter_nearest_mipmap", "filter_linear_mipmap",
     // Repeat
     "repeat_enable", "repeat_disable",
-    // Flags
-    "flags_unused_uvs", "flags_uses_screen_uv", "flags_uses_depth",
-    "flags_uses_time", "flags_uses_alpha", "flags_albedo_tex_force_srgb",
-    "flags_do_vertex_lighting"
+    // Instance
+    "instance_index"
 ];
 
 // ============================================================================
@@ -604,43 +587,27 @@ export const GODOT_SHADER_RENDER_MODE_DESCRIPTIONS: {[key: string]: {desc: strin
     'do_not_delay_visibility': { desc: '不延迟可见性（Canvas Item 专用）', detail: 'Canvas Item' }
 };
 
-// stencil_mode 有效选项（仅 spatial，按字母序）
+// stencil_mode 有效选项（仅 spatial，Godot 4.x）
 export const GODOT_SHADER_STENCIL_MODES: {[key: string]: string[]} = {
     'spatial': [
-        // 完整版（带 compare_ 前缀）
         'compare_always', 'compare_equal', 'compare_greater', 'compare_greater_or_equal',
         'compare_less', 'compare_less_or_equal', 'compare_not_equal',
-        'read', 'write', 'write_if_depth_fail',
-        // 简写版（不带 compare_ 前缀，Godot 同样支持）
-        'always', 'equal', 'greater', 'greater_or_equal',
-        'less', 'less_or_equal', 'not_equal',
-        'never'
+        'read', 'write', 'write_if_depth_fail'
     ]
 };
 
-// stencil_mode 描述
+// stencil_mode 描述（Godot 4.x）
 export const GODOT_SHADER_STENCIL_MODE_DESCRIPTIONS: {[key: string]: {desc: string, detail: string}} = {
-    // 操作
     'read': { desc: '从模板缓冲区读取（仅在透明通道中有效）', detail: 'Operation' },
     'write': { desc: '将参考值写入模板缓冲区', detail: 'Operation' },
     'write_if_depth_fail': { desc: '深度测试失败时将参考值写入模板缓冲区', detail: 'Operation' },
-    // 比较函数（完整版）
     'compare_always': { desc: '始终通过模板测试', detail: 'Compare' },
     'compare_equal': { desc: '参考值等于模板缓冲区值时通过模板测试', detail: 'Compare' },
     'compare_greater': { desc: '参考值大于模板缓冲区值时通过模板测试', detail: 'Compare' },
     'compare_greater_or_equal': { desc: '参考值大于或等于模板缓冲区值时通过模板测试', detail: 'Compare' },
     'compare_less': { desc: '参考值小于模板缓冲区值时通过模板测试', detail: 'Compare' },
     'compare_less_or_equal': { desc: '参考值小于或等于模板缓冲区值时通过模板测试', detail: 'Compare' },
-    'compare_not_equal': { desc: '参考值不等于模板缓冲区值时通过模板测试', detail: 'Compare' },
-    // 比较函数（简写版）
-    'always': { desc: '始终通过模板测试（简写）', detail: 'Compare' },
-    'equal': { desc: '参考值等于模板缓冲区值时通过模板测试（简写）', detail: 'Compare' },
-    'greater': { desc: '参考值大于模板缓冲区值时通过模板测试（简写）', detail: 'Compare' },
-    'greater_or_equal': { desc: '参考值大于或等于模板缓冲区值时通过模板测试（简写）', detail: 'Compare' },
-    'less': { desc: '参考值小于模板缓冲区值时通过模板测试（简写）', detail: 'Compare' },
-    'less_or_equal': { desc: '参考值小于或等于模板缓冲区值时通过模板测试（简写）', detail: 'Compare' },
-    'not_equal': { desc: '参考值不等于模板缓冲区值时通过模板测试（简写）', detail: 'Compare' },
-    'never': { desc: '始终不通过模板测试（简写）', detail: 'Compare' }
+    'compare_not_equal': { desc: '参考值不等于模板缓冲区值时通过模板测试', detail: 'Compare' }
 };
 
 // shader_type 描述（字母序）
@@ -680,46 +647,44 @@ export const GODOT_SHADER_TYPE_INFO: {[key: string]: {category: string, desc: st
     'samplerExternalOES': { category: 'Sampler', desc: '外部 OES 纹理采样器（Android/移动平台）。只能用于 uniform 声明。' }
 };
 
-// Godot Shader hint 描述
+// Godot Shader hint 描述（基于 Godot 4.x 官方文档）
 export const GODOT_SHADER_HINT_INFO: {[key: string]: {category: string, desc: string}} = {
-    'hint_white_texture': { category: 'Texture Hint', desc: '纹理默认值为白色' },
-    'hint_black_albedo': { category: 'Texture Hint', desc: '纹理默认值为黑色（反照率贴图）' },
-    'hint_normal': { category: 'Texture Hint', desc: '指定纹理为法线贴图' },
-    'hint_depth_texture': { category: 'Texture Hint', desc: '指定纹理为深度贴图' },
-    'hint_screen_texture': { category: 'Texture Hint', desc: '指定纹理为屏幕纹理' },
-    'hint_black': { category: 'Texture Hint', desc: '纹理默认值为黑色' },
+    // Color
+    'source_color': { category: 'Color', desc: '标记为 sRGB 颜色数据（vec3/vec4/sampler2D 可用）。Forward+/Mobile 必需' },
+    // Texture defaults
     'hint_default_white': { category: 'Texture Hint', desc: '纹理默认值为白色' },
     'hint_default_black': { category: 'Texture Hint', desc: '纹理默认值为黑色' },
     'hint_default_transparent': { category: 'Texture Hint', desc: '纹理默认值为透明' },
-    'hint_anisotropy': { category: 'Texture Hint', desc: '启用各向异性过滤，改善斜视角纹理质量' },
-    'hint_albedo': { category: 'Texture Hint', desc: '标记为反照率纹理（Albedo map）' },
-    'hint_roughness_r': { category: 'Texture Hint', desc: '粗糙度使用纹理的 R 通道' },
-    'hint_roughness_g': { category: 'Texture Hint', desc: '粗糙度使用纹理的 G 通道' },
-    'hint_roughness_b': { category: 'Texture Hint', desc: '粗糙度使用纹理的 B 通道' },
-    'hint_roughness_a': { category: 'Texture Hint', desc: '粗糙度使用纹理的 A 通道' },
-    'hint_roughness_normal': { category: 'Texture Hint', desc: '从法线贴图推导粗糙度' },
-    'source_color': { category: 'Value Hint', desc: '指定颜色为源颜色（不经过颜色空间转换），适用于 vec4' },
-    'hint_color': { category: 'Value Hint', desc: '指定该 uniform 是颜色值，检查器会显示颜色选择器。仅适用于 vec4' },
-    'hint_range': { category: 'Value Hint', desc: '添加范围滑块，可在检查器中调整。格式: hint_range(min, max, step)' },
-    'hint_enum': { category: 'Value Hint', desc: '枚举选项，可在检查器中选择。格式: hint_enum("opt1", "opt2")' },
-    'hint_exp_range': { category: 'Value Hint', desc: '指数范围滑块，适合对数值的范围调整。格式: hint_exp_range(min, max, step)' },
-    'hint_multiline_text': { category: 'Value Hint', desc: '多行文本输入框，适合较长的字符串输入' },
-    'hint_linked_port': { category: 'Value Hint', desc: '链接端口，可在编辑器中连接其他节点输出到此 uniform' },
-    'hint_file': { category: 'Value Hint', desc: '文件选择器，可在检查器中浏览文件' },
-    'hint_dir': { category: 'Value Hint', desc: '目录选择器，可在检查器中浏览目录' },
-    'filter_nearest': { category: 'Filter', desc: '使用最近邻过滤（像素化效果），适合像素风格' },
-    'filter_linear': { category: 'Filter', desc: '使用线性过滤（平滑插值），适合平滑纹理' },
-    'filter_nearest_mipmap': { category: 'Filter', desc: '最近邻过滤 + 多级渐远纹理（远处像素化）' },
-    'filter_linear_mipmap': { category: 'Filter', desc: '线性过滤 + 多级渐远纹理（远处平滑）' },
-    'repeat_enable': { category: 'Repeat', desc: '启用纹理重复（平铺效果）' },
-    'repeat_disable': { category: 'Repeat', desc: '禁用纹理重复（边缘拉伸/钳制）' },
-    'flags_unused_uvs': { category: 'Flag', desc: '标示该 uniform 不使用 UV 坐标' },
-    'flags_uses_screen_uv': { category: 'Flag', desc: '标示该 uniform 使用屏幕 UV 坐标' },
-    'flags_uses_depth': { category: 'Flag', desc: '标示该 uniform 使用深度信息' },
-    'flags_uses_time': { category: 'Flag', desc: '标示该 uniform 使用时间变量 TIME' },
-    'flags_uses_alpha': { category: 'Flag', desc: '标示该 uniform 使用 Alpha 通道' },
-    'flags_albedo_tex_force_srgb': { category: 'Flag', desc: '强制反照率纹理使用 sRGB 颜色空间' },
-    'flags_do_vertex_lighting': { category: 'Flag', desc: '强制使用顶点光照' }
+    // Texture type
+    'hint_normal': { category: 'Texture Type', desc: '指定纹理为法线贴图' },
+    'hint_depth_texture': { category: 'Texture Type', desc: '指定纹理为深度贴图' },
+    'hint_screen_texture': { category: 'Texture Type', desc: '指定纹理为屏幕纹理' },
+    'hint_anisotropy': { category: 'Texture Type', desc: '各向异性流图，默认流向为右' },
+    'hint_normal_roughness_texture': { category: 'Texture Type', desc: '法线粗糙度纹理（仅 Forward+）' },
+    // Roughness limiter
+    'hint_roughness_r': { category: 'Roughness', desc: '粗糙度取自纹理 R 通道' },
+    'hint_roughness_g': { category: 'Roughness', desc: '粗糙度取自纹理 G 通道' },
+    'hint_roughness_b': { category: 'Roughness', desc: '粗糙度取自纹理 B 通道' },
+    'hint_roughness_a': { category: 'Roughness', desc: '粗糙度取自纹理 A 通道' },
+    'hint_roughness_normal': { category: 'Roughness', desc: '从法线贴图推导粗糙度（高频细节处增大粗糙度）' },
+    'hint_roughness_gray': { category: 'Roughness', desc: '粗糙度取自纹理灰度值' },
+    // Value range
+    'hint_range': { category: 'Range', desc: '范围滑块。格式: hint_range(min, max[, step])。int/float 可用' },
+    'hint_enum': { category: 'Enum', desc: '下拉枚举。格式: hint_enum("A", "B")。int 可用' },
+    // String
+    'hint_multiline_text': { category: 'String', desc: '多行文本输入框' },
+    'hint_file': { category: 'String', desc: '文件路径选择器' },
+    'hint_dir': { category: 'String', desc: '目录路径选择器' },
+    // Texture filter
+    'filter_nearest': { category: 'Filter', desc: '最近邻过滤（像素化）' },
+    'filter_linear': { category: 'Filter', desc: '线性过滤（平滑）' },
+    'filter_nearest_mipmap': { category: 'Filter', desc: '最近邻 + Mipmap' },
+    'filter_linear_mipmap': { category: 'Filter', desc: '线性 + Mipmap' },
+    // Texture repeat
+    'repeat_enable': { category: 'Repeat', desc: '启用纹理重复（平铺）' },
+    'repeat_disable': { category: 'Repeat', desc: '禁用纹理重复（钳制边缘）' },
+    // Instance
+    'instance_index': { category: 'Instance', desc: '指定 per-instance uniform 索引 (0-15)' },
 };
 
 // ============================================================================
@@ -844,7 +809,6 @@ export const GODOT_SHADER_FUNCTION_RETURNS: Record<string, { zh: string; en: str
     'asin': { zh: '[-π/2, π/2]', en: '[-π/2, π/2]' },
     'acos': { zh: '[0, π]', en: '[0, π]' },
     'atan': { zh: '[-π, π]', en: '[-π, π]' },
-    'atan2': { zh: '[-π, π]', en: '[-π, π]' },
     'sinh': { zh: '(-∞, +∞)', en: '(-∞, +∞)' },
     'cosh': { zh: '[1, +∞)', en: '[1, +∞)' },
     'tanh': { zh: '(-1, 1)', en: '(-1, 1)' },
@@ -883,14 +847,9 @@ export const GODOT_SHADER_FUNCTION_RETURNS: Record<string, { zh: string; en: str
     'outerProduct': { zh: '矩阵', en: 'matrix' },
     'radians': { zh: '弧度值', en: 'radians' },
     'degrees': { zh: '角度值', en: 'degrees' },
-    'noise': { zh: '[-1, 1]', en: '[-1, 1]' },
-    'noise_perlin': { zh: '[-1, 1]', en: '[-1, 1]' },
-    'noise_simplex': { zh: '[-1, 1]', en: '[-1, 1]' },
-    'dfdx': { zh: '偏导数值', en: 'partial derivative' },
-    'dfdy': { zh: '偏导数值', en: 'partial derivative' },
+    'dFdx': { zh: '偏导数值', en: 'partial derivative' },
+    'dFdy': { zh: '偏导数值', en: 'partial derivative' },
     'fwidth': { zh: '[0, +∞)', en: '[0, +∞)' },
-    'hash': { zh: '[0, 1]', en: '[0, 1]' },
-    'rand': { zh: '[0, 1]', en: '[0, 1]' },
     'texture': { zh: 'vec4 颜色', en: 'vec4 color' },
     'textureLod': { zh: 'vec4 颜色', en: 'vec4 color' },
     'textureProj': { zh: 'vec4 颜色', en: 'vec4 color' },
@@ -898,5 +857,4 @@ export const GODOT_SHADER_FUNCTION_RETURNS: Record<string, { zh: string; en: str
     'textureCube': { zh: 'vec4 颜色', en: 'vec4 color' },
     'textureCubeLod': { zh: 'vec4 颜色', en: 'vec4 color' },
     'textureArray': { zh: 'vec4 颜色', en: 'vec4 color' },
-    'attenuation': { zh: '[0, 1]', en: '[0, 1]' },
 };
