@@ -2,7 +2,7 @@
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.120%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.97-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.100-2ea44f)
 ![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/GodotShaderForVScode?style=flat-square)
@@ -15,6 +15,8 @@
 </p>
 
 # Godot Shader for VS Code
+
+> 🌐 [简体中文](./README-zh.md)
 
 The best Godot Shader development extension — 20 providers, 160+ built-ins, 74 functions, 65 snippets, fully bilingual (zh/en).
 
