@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Fair
+// SPDX-License-Identifier: MIT
+
 import * as vscode from 'vscode';
 import { GodotShaderCompletionProvider } from './features/completion';
 import { GodotShaderHoverProvider } from './features/hover';

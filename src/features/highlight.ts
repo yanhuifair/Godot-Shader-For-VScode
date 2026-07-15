@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Fair
+// SPDX-License-Identifier: MIT
+
 import * as vscode from 'vscode';
 import { escapeRegExp, isInCommentOrString } from '../utils';
 import { GODOT_SHADER_KEYWORD_SET } from '../shader-data';

@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Fair
+// SPDX-License-Identifier: MIT
+
 export const EN_DESCRIPTIONS: Record<string, string> = {
     "TIME": "Global time since engine start (seconds)",
     "PI": "Constant π (3.141592)",

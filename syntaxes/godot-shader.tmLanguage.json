@@ -1,3 +1,5 @@
+// Copyright (c) 2026 Fair
+// SPDX-License-Identifier: MIT
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "GodotShader",

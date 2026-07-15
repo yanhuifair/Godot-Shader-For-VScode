@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Fair
+// SPDX-License-Identifier: MIT
+
 // Godot Shader 内置变量、常量、矩阵和函数的数据
 
 interface BuiltinsMap {

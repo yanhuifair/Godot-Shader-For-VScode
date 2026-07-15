@@ -1,3 +1,6 @@
+// Copyright (c) 2026 Fair
+// SPDX-License-Identifier: MIT
+
 import * as vscode from 'vscode';
 import { GODOT_SHADER_BUILTINS, GODOT_SHADER_RENDER_MODES, GODOT_SHADER_HINTS, getVariableShaderTypes } from '../shader-data';
 import { t } from '../i18n';

@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+// Copyright (c) 2026 Fair
+// SPDX-License-Identifier: MIT
+
 
 const fs = require('fs');
 const path = require('path');
