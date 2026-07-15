@@ -69,10 +69,7 @@ export class GodotShaderDiagnosticProvider {
         // 4. 检查 render_mode 语法
         this.checkRenderMode(lines, diagnostics, document);
 
-        // 5. 检查函数声明
-        this.checkFunctionDeclarations(lines, diagnostics, document);
-
-        // 6. 检查变量声明
+        // 5. 检查变量声明（函数入口兼容性由 checkShaderFuncAvailability 负责）
         this.checkVariableDeclarations(lines, diagnostics, document);
 
         // 7. 检查保留字使用
@@ -97,7 +94,7 @@ export class GodotShaderDiagnosticProvider {
         this.checkStencilReadPass(lines, diagnostics, document);
 
         // 14. 检查数字写法是否合法
-        this.checkNumberFormat(lines, diagnostics, document);
+        this.checkNumberFormat(lines, diagnostics);
 
         // 15. 检查 shader_type 对应函数是否匹配（如 spatial 中写了 sky()）
         this.checkShaderFuncAvailability(lines, diagnostics, document);
@@ -122,6 +119,9 @@ export class GodotShaderDiagnosticProvider {
 
         // 22. 检查只读内置变量被赋值（如 LIGHT = xxx）
         this.checkReadonlyBuiltins(lines, diagnostics, document);
+
+        // 23. 检查声明但未使用的局部变量
+        this.checkUnusedLocals(lines, diagnostics, document);
 
         this.diagnosticCollection.set(document.uri, diagnostics);
     }
@@ -347,11 +347,6 @@ export class GodotShaderDiagnosticProvider {
         }
     }
 
-    private checkFunctionDeclarations(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
-        // 自定义 void 函数不再警告 — 仅检查着色器入口函数名是否在正确的 shader_type 中使用
-        // （该检查已由 checkShaderFuncAvailability 负责，此处不再重复告警）
-    }
-
     private checkVariableDeclarations(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
@@ -362,7 +357,7 @@ export class GodotShaderDiagnosticProvider {
                 const type = uniformMatch[1];
                 const validTypes = ['bool', 'bvec2', 'bvec3', 'bvec4', 'float', 'int', 'ivec2', 'ivec3', 'ivec4',
                                    'mat2', 'mat3', 'mat4',
-                                   'sampler2D', 'sampler2DArray', 'sampler3D', 'samplerCube', 'samplerExternalOES',
+                                   'sampler2D', 'sampler2DArray', 'samplerCube', 'samplerExternalOES',
                                    'uint', 'uvec2', 'uvec3', 'uvec4',
                                    'vec2', 'vec3', 'vec4'];
                 
@@ -716,10 +711,9 @@ export class GodotShaderDiagnosticProvider {
     }
 
     // 14. 检查数字写法是否合法（Godot/GLSL 数值格式校验）
-    private checkNumberFormat(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+    private checkNumberFormat(lines: string[], diagnostics: vscode.Diagnostic[]) {
         for (let i = 0; i < lines.length; i++) {
-            const line = document.lineAt(i);
-            const text = line.text;
+            const text = lines[i];
 
             // 跳过注释行
             const trimmed = text.trim();
@@ -766,8 +760,11 @@ export class GodotShaderDiagnosticProvider {
 
     // 校验单个数字 token 是否为合法 Godot 4 / GLSL ES 3.0 数值
     private isValidNumber(token: string): boolean {
-        // 1. 十六进制整数: 0xFF, 0xFFu（GLSL ES 3.0 不支持 0b 二进制和 0x 十六进制浮点）
+        // 1. 十六进制整数: 0xFF, 0xFFu（GLSL ES 3.0 不支持 0b 二进制）
         if (/^0[xX][0-9a-fA-F]+[uU]?$/.test(token)) return true;
+        // 1b. 十六进制浮点: 0x1.0p4, 0x1p4, 0x.5p-2f（GLSL ES 3.0 支持）
+        if (/^0[xX][0-9a-fA-F]+(\.[0-9a-fA-F]+)?[pP][+-]?\d+[fF]?$/.test(token)) return true;
+        if (/^0[xX][0-9a-fA-F]*\.[0-9a-fA-F]+[pP][+-]?\d+[fF]?$/.test(token)) return true;
 
         // 2. 科学计数法浮点数: 1.5e3, 1e3, 1.5e-2, 1e+2f
         if (/^\d+\.\d*[eE][+-]?\d+[fF]?$/.test(token)) return true;
@@ -1188,7 +1185,7 @@ export class GodotShaderDiagnosticProvider {
     private checkUnusedLocals(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
         let braceDepth = 0;
         let inFunction = false;
-        let funcStartLine = -1;
+        let structDepth = 0;
         // 当前函数内: 变量名 → {声明行, 列, 已使用}
         const localVars = new Map<string, {line: number, col: number, used: boolean}>();
 
@@ -1212,12 +1209,11 @@ export class GodotShaderDiagnosticProvider {
             const trimmed = line.trim();
             if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) continue;
 
-            // 检测函数声明进入
+            // 检测函数声明进入（排除 struct 声明，避免误将结构体字段当作局部变量）
             const funcMatch = trimmed.match(/^(void\s+)?\w+\s+(\w+)\s*\(([^)]*)\)\s*\{?/);
-            if (funcMatch && !inFunction) {
+            if (funcMatch && !inFunction && !/^\s*struct\b/.test(trimmed)) {
                 const paramStr = funcMatch[3] || '';
                 inFunction = true;
-                funcStartLine = i;
                 localVars.clear();
 
                 // 收集参数名（跳过类型和修饰符）
@@ -1228,18 +1224,25 @@ export class GodotShaderDiagnosticProvider {
                 }
             }
 
-            // 追踪大括号深度
+            // 追踪大括号深度（同时追踪 struct 深度，struct 内部不视为局部变量作用域）
             for (const ch of line) {
-                if (ch === '{') braceDepth++;
-                else if (ch === '}') {
-                    braceDepth--;
-                    if (braceDepth <= 0 && inFunction) {
-                        flushLocals();
+                if (ch === '{') {
+                    const before = line.substring(0, line.indexOf('{'));
+                    if (/\bstruct\b/.test(before)) structDepth++;
+                    braceDepth++;
+                } else if (ch === '}') {
+                    if (structDepth > 0) {
+                        structDepth--;
+                    } else {
+                        braceDepth--;
+                        if (braceDepth <= 0 && inFunction) {
+                            flushLocals();
+                        }
                     }
                 }
             }
 
-            if (!inFunction || braceDepth <= 0) continue;
+            if (!inFunction || braceDepth <= 0 || structDepth > 0) continue;
 
             // 检测局部变量声明: type name = ...; 或 type name;
             // 跳过 uniform/varying/const/void/return 等

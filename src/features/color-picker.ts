@@ -48,7 +48,7 @@ export class GodotShaderColorProvider implements vscode.DocumentColorProvider {
         const b = this.fmt(color.blue);
         const a = this.fmt(color.alpha);
 
-        const isVec4 = match.startsWith('vec4') || lineText.includes('vec4');
+        const isVec4 = match.startsWith('vec4');
         const isHex = match.startsWith('#');
 
         if (isHex) {

@@ -75,7 +75,9 @@ export function activate(context: vscode.ExtensionContext) {
     push(vscode.languages.registerDocumentRangeFormattingEditProvider(LANG, formatter));
 
     // 诊断
-    new GodotShaderDiagnosticProvider().activate(context);
+    const diagnosticProvider = new GodotShaderDiagnosticProvider();
+    diagnosticProvider.activate(context);
+    push(diagnosticProvider); // 注册到 subscriptions，扩展停用时自动 dispose（清理防抖定时器与诊断集合）
 
     // 函数签名
     push(vscode.languages.registerSignatureHelpProvider(LANG,

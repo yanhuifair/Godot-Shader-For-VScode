@@ -9,7 +9,6 @@ interface CachedSymbol {
 }
 
 let symbolCache: CachedSymbol[] | null = null;
-let cacheVersion = 0;
 
 export class GodotShaderWorkspaceSymbolProvider implements vscode.WorkspaceSymbolProvider {
 
@@ -40,7 +39,6 @@ export class GodotShaderWorkspaceSymbolProvider implements vscode.WorkspaceSymbo
     /** 外部可调用以失效缓存（文件变化时） */
     public static invalidateCache(): void {
         symbolCache = null;
-        cacheVersion++;
     }
 
     private async buildIndex(token: vscode.CancellationToken): Promise<CachedSymbol[]> {

@@ -39,7 +39,8 @@ export class GodotShaderCodeLensProvider implements vscode.CodeLensProvider {
             const declMatch = text.match(/^(uniform|varying|const)\s+(\w+)\s+(\w+)/);
             if (declMatch) {
                 const [, keyword, type, name] = declMatch;
-                const count = refCounts.get(name) || 0;
+                // 减去声明行自身的一次出现，得到真实引用数
+                const count = Math.max(0, (refCounts.get(name) || 0) - 1);
                 const nameIndex = line.text.indexOf(name);
                 const range = new vscode.Range(i, nameIndex, i, nameIndex + name.length);
 
@@ -61,23 +62,22 @@ export class GodotShaderCodeLensProvider implements vscode.CodeLensProvider {
             const funcMatch = text.match(/^void\s+(\w+)\s*\(/);
             if (funcMatch) {
                 const funcName = funcMatch[1];
-                const count = refCounts.get(funcName) || 0;
+                // 减去声明行自身的一次出现，得到真实引用数
+                const count = Math.max(0, (refCounts.get(funcName) || 0) - 1);
                 const nameIndex = line.text.indexOf(funcName);
                 const range = new vscode.Range(i, nameIndex, i, nameIndex + funcName.length);
 
-                if (count > 0) {
-                    const lens = new vscode.CodeLens(range);
-                    lens.command = {
-                        title: `${count} ${count === 1 ? refLabel : refLabels}`,
-                        command: 'editor.action.findReferences',
-                        arguments: [
-                            document.uri,
-                            new vscode.Position(i, nameIndex)
-                        ],
-                        tooltip: `${findRefs} '${funcName}'`
-                    };
-                    lenses.push(lens);
-                }
+                const lens = new vscode.CodeLens(range);
+                lens.command = {
+                    title: `${count} ${count === 1 ? refLabel : refLabels}`,
+                    command: 'editor.action.findReferences',
+                    arguments: [
+                        document.uri,
+                        new vscode.Position(i, nameIndex)
+                    ],
+                    tooltip: `${findRefs} '${funcName}'`
+                };
+                lenses.push(lens);
             }
         }
 

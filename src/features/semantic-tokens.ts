@@ -66,17 +66,9 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
                 continue;
             }
 
-            // #if 0 禁用的块：所有内容标记为 comment 样式（灰显）
+            // #if 0 禁用的块：直接跳过，保留默认着色（不让语义令牌覆盖）
             const isInDisabledBlock = this.isInDisabledRange(line, disabledRanges);
             if (isInDisabledBlock) {
-                // 灰显块内的预处理指令和关键字
-                for (const r of disabledRanges) {
-                    if (line >= r.start && line <= r.end) {
-                        // 为整行添加 comment 令牌
-                        tokensBuilder.push(line, 0, text.length, -1, 0); // -1 = no token type (keeps default)
-                        break;
-                    }
-                }
                 continue;
             }
 

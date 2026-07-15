@@ -307,8 +307,16 @@ export class GodotShaderFormatter implements
     }
     
     // 格式化代码部分（不含注释）
+    // 格式化代码部分（不含注释）
+    // 先保护字符串字面量，避免被空格/运算符规则破坏（如 "res://icon.png"）
     private formatCode(code: string): string {
-        let formatted = code.trim();
+        const strings: string[] = [];
+        const protectedCode = code.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, (m) => {
+            const idx = strings.length;
+            strings.push(m);
+            return `\x00STR${idx}\x00`;
+        });
+        let formatted = protectedCode.trim();
         
         // 1. 规范化逗号：去除逗号前后多余空格，逗号后留一个空格: "a ,  b" -> "a, b"
         // 排除行尾逗号（续行符），不添加尾随空格
@@ -385,7 +393,10 @@ export class GodotShaderFormatter implements
         
         // 12. 最后折叠多余空格: "a  =  b  +  c" -> "a = b + c"
         formatted = formatted.replace(/\s{2,}/g, ' ');
-        
+
+        // 还原字符串字面量
+        formatted = formatted.replace(/\x00STR(\d+)\x00/g, (_, d) => strings[Number(d)]);
+
         return formatted;
     }
     

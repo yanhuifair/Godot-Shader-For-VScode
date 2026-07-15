@@ -51,7 +51,7 @@ vscode.workspace.onDidChangeConfiguration((e) => {
 export class GodotShaderCompletionProvider implements vscode.CompletionItemProvider {
     
     // 触发字符 - 添加空格支持
-    public static readonly triggerCharacters = ['.', ':', ',', '(', ' ', '\n', '#'];
+    public static readonly triggerCharacters = ['.', ':', ',', '(', '#'];
     
     public provideCompletionItems(
         document: vscode.TextDocument,
