@@ -1,3 +1,5 @@
+<!-- Copyright (c) 2026 Fair -->
+<!-- SPDX-License-Identifier: MIT -->
 <!-- markdownlint-disable MD033 MD041 -->
 <div align="center">
 
