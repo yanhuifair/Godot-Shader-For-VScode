@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Fair
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
 import { GODOT_SHADER_BUILTINS, GODOT_SHADER_RENDER_MODES, GODOT_SHADER_HINTS, getVariableShaderTypes } from '../shader-data';
@@ -724,40 +724,67 @@ export class GodotShaderDiagnosticProvider {
                 continue;
             }
 
-            // 查找所有疑似数字的 token
-            const tokenRegex = /\b\d[\d.a-fA-FbBoOxXeEpPfFuU+-]*\b/g;
+            // 查找所有疑似数字的 token。
+            //
+            // 关键约束：
+            // 1) 字符类内绝不能包含 + / -，否则会把"无空格的运算符表达式"
+            //    （如 1.0-0.5、5+2、2.0*0.5+1.0）误并入一个数字 token 而误报。
+            //    符号仅允许出现在指数部分（e/E/p/P 之后）。
+            // 2) GLSL 十六进制浮点（0x...pN）与十进制浮点（...eN）使用的指数字母不同、
+            //    可用数字集也不同，若用同一个贪婪字符类会把十进制指数字母 e 当成十六进制
+            //    数字吞掉（1.5e-2 误拆成 1.5e / 2）。因此拆成三条独立正则分别匹配。
+            const decimalRegex = /\b\d+\.?\d*(?:[eE][+-]?\d+)?[fFuU]?\b/g;          // 十进制浮点/整数
+            const hexRegex = /\b0[xX][0-9a-fA-F]*(?:\.[0-9a-fA-F]*)?(?:[pP][+-]?[0-9]+)?[fFuU]?\b/g; // 十六进制浮点/整数
+            const dotRegex = /\B\.\d[\d]*(?:[eE][+-]?\d+)?[fFuU]?\b/g;              // .5 / .5e3 / .5f 等
             let match: RegExpExecArray | null;
 
-            while ((match = tokenRegex.exec(text)) !== null) {
-                const token = match[0];
+            const testToken = (re: RegExp) => {
+                re.lastIndex = 0;
+                let m: RegExpExecArray | null;
+                while ((m = re.exec(text)) !== null) {
+                    const token = m[0];
+                    // 跳过明显合法的简单数字（纯整数）
+                    if (/^\d+[uU]?$/.test(token)) continue;
+                    if (!this.isValidNumber(token)) {
+                        diagnostics.push({
+                            severity: vscode.DiagnosticSeverity.Error,
+                            range: new vscode.Range(i, m.index, i, m.index + token.length),
+                            message: t('diag.invalid_number', token),
+                            source: 'godot-shader'
+                        });
+                    }
+                }
+            };
 
-                // 跳过明显合法的简单数字
-                if (/^\d+[uU]?$/.test(token)) continue;
+            testToken(decimalRegex);
+            testToken(hexRegex);
+            testToken(dotRegex);
 
-                // 校验：是否是合法的数值格式
-                if (!this.isValidNumber(token)) {
+            // 补充：捕获"精确拆分后仍漏掉"的非法数字写法。
+            // 这些正则是"仅匹配非法形态"的，对合法代码零误报风险。
+            const invalidDoubleDot = /\b\d+\.\d*\.\d*/g;     // 1.0.5 / 1..5
+            // 指数字母后没有"可选符号 + 数字"：1.5e / 1e- / 1.5e+（不完整指数）
+            // 注意用否定前瞻 (?![+-]?\d) 整体判定，避免把 1.5e-2 误拆成 1.5e。
+            const invalidTrailingExp = /\b\d+\.?\d*[eEpP](?![+-]?\d)/g;
+
+            const testInvalid = (re: RegExp) => {
+                re.lastIndex = 0;
+                let m: RegExpExecArray | null;
+                while ((m = re.exec(text)) !== null) {
+                    const token = m[0];
+                    // 避免与上面已正确判定的合法数字（如 0x1.0p4）冲突：仅当不是合法数字时才报错
+                    if (this.isValidNumber(token)) continue;
                     diagnostics.push({
                         severity: vscode.DiagnosticSeverity.Error,
-                        range: new vscode.Range(i, match.index, i, match.index + token.length),
+                        range: new vscode.Range(i, m.index, i, m.index + token.length),
                         message: t('diag.invalid_number', token),
                         source: 'godot-shader'
                     });
                 }
-            }
+            };
 
-            // 独立检测 . 开头的数字（如 .5, .5e3, .5f）
-            const dotTokenRegex = /\B\.\d[\d.eEfF+-]*\b/g;
-            while ((match = dotTokenRegex.exec(text)) !== null) {
-                const token = match[0];
-                if (!this.isValidNumber(token)) {
-                    diagnostics.push({
-                        severity: vscode.DiagnosticSeverity.Error,
-                        range: new vscode.Range(i, match.index, i, match.index + token.length),
-                        message: t('diag.invalid_number', token),
-                        source: 'godot-shader'
-                    });
-                }
-            }
+            testInvalid(invalidDoubleDot);
+            testInvalid(invalidTrailingExp);
         }
     }
 
