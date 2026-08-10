@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Fair
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
 import { GODOT_SHADER_TYPES } from '../shader-data';

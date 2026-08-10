@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Fair
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
 import { GODOT_SHADER_KEYWORD_SET, GODOT_SHADER_GLSL_BUILTIN_SET, GODOT_SHADER_BUILTIN_NAME_SET } from '../shader-data';

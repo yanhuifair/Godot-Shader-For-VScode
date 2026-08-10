@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Fair
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0
 
 // Godot Shader 内置变量、常量、矩阵和函数的数据
 

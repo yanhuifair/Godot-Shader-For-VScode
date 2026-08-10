@@ -1,5 +1,5 @@
 // Copyright (c) 2026 Fair
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: AGPL-3.0
 
 export const EN_DESCRIPTIONS: Record<string, string> = {
     "TIME": "Global time since engine start (seconds)",

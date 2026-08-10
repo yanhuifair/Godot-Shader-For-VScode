@@ -1,12 +1,12 @@
 <!-- Copyright (c) 2026 Fair -->
-<!-- SPDX-License-Identifier: MIT -->
+<!-- SPDX-License-Identifier: AGPL-3.0 -->
 <!-- markdownlint-disable MD033 MD041 -->
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.120%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.103-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.104-2ea44f)
 ![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
 
