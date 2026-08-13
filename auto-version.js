@@ -26,9 +26,14 @@ fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, '\t') + '\n'
 const lockPath = path.join(root, 'package-lock.json');
 if (fs.existsSync(lockPath)) {
     let lockContent = fs.readFileSync(lockPath, 'utf8');
-    // 只替换根对象的 version 字段（第一个出现的 "version"）
+    // 1) 顶层 "version" 字段（第一个出现的 "version"）
     lockContent = lockContent.replace(
         /("version":\s*)"[\d.]+"/,
+        `$1"${newVersion}"`
+    );
+    // 2) packages[""] 根包条目里的 version（否则会与顶层版本脱节，导致 npm ci 报错）
+    lockContent = lockContent.replace(
+        /("":\s*\{\s*"name":\s*"[^"]+",\s*"version":\s*)"[\d.]+"/,
         `$1"${newVersion}"`
     );
     fs.writeFileSync(lockPath, lockContent, 'utf8');
