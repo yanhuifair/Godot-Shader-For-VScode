@@ -22,6 +22,8 @@
 
 最佳的 Godot Shader 开发插件 —— 20 个供应器，160+ 内置变量，74 个函数，65 个代码片段，完整中英双语。
 
+**GitHub 仓库:** [https://github.com/yanhuifair/Godot-Shader-For-VScode](https://github.com/yanhuifair/Godot-Shader-For-VScode)
+
 ---
 
 ## 安装
