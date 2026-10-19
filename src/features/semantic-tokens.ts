@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { GODOT_SHADER_BUILTINS, GODOT_SHADER_TYPES, GODOT_SHADER_KEYWORDS, GODOT_SHADER_HINTS, GODOT_SHADER_STENCIL_MODES } from '../shader-data';
 import { computeCodeOnlyLines } from '../utils';
+import { getDocIndex } from '../symbol-index';
 
 // 语义令牌类型定义
 const tokenTypes = [
@@ -51,6 +52,9 @@ const MOD_READONLY = 1 << tokenModifiers.indexOf('readonly');
 
 export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanticTokensProvider {
 
+    private structNames = new Set<string>();
+    private structFields = new Set<string>();
+
     public provideDocumentSemanticTokens(
         document: vscode.TextDocument,
         token: vscode.CancellationToken
@@ -67,6 +71,12 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
             rawLines.push(document.lineAt(line).text);
         }
         const codeLines = computeCodeOnlyLines(rawLines);
+
+        // struct 名称与字段名：让它们按 type / property 着色，而不是默认的 variable
+        const docIndex = getDocIndex(document);
+        this.structNames = new Set(docIndex.structs.map(s => s.name));
+        this.structFields = new Set<string>();
+        for (const s of docIndex.structs) for (const f of s.fields) this.structFields.add(f.name);
 
         for (let line = 0; line < document.lineCount; line++) {
             const code = codeLines[line];
@@ -126,6 +136,14 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
         // 2. 类型名
         if (typeSet.has(word)) {
             return { tokenType: 4, tokenModifiers: modifiers }; // type
+        }
+
+        // 2a. 用户 struct 名称 / 字段
+        if (this.structNames.has(word)) {
+            return { tokenType: 4, tokenModifiers: modifiers }; // type
+        }
+        if (this.structFields.has(word) && /\.\s*$/.test(lineText.substring(0, pos))) {
+            return { tokenType: 1, tokenModifiers: modifiers }; // property
         }
 
         // 2b. Uniform hint 值: source_color, filter_linear, hint_range 等

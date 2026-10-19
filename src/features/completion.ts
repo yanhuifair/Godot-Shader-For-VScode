@@ -19,6 +19,7 @@ import {
 } from '../shader-data';
 import { t, getLanguage, td, getLang } from '../i18n';
 import { getShaderType } from '../utils';
+import { getDocIndex, getLocalSymbols, getGlobalSymbols } from '../symbol-index';
 
 // 语言感知的补全缓存（避免每次补全都重建 300+ 个 CompletionItem）
 let cachedAllCompletions: { lang: string; items: vscode.CompletionItem[] } | null = null;
@@ -90,11 +91,26 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
             return this.getPreprocessorCompletions(document);
         }
 
-        // 分量（swizzle）补全 — 依据前一个标识符的类型给出 x/y/z/w、r/g/b/a、s/t/p/q
-        const swizzleMatch = /([A-Za-z_]\w*)\.[A-Za-z_]*$/.exec(textBeforeCursor);
-        if (swizzleMatch) {
-            const comps = this.getSwizzleCompletions(document, swizzleMatch[1]);
+        // 分量（swizzle）/ 结构体字段补全
+        const memberMatch = /([A-Za-z_]\w*)\.[A-Za-z_]*$/.exec(textBeforeCursor);
+        if (memberMatch) {
+            const comps = this.getMemberCompletions(document, memberMatch[1]);
             if (comps.length > 0) return comps;
+            // 已知类型但没有成员（标量 / 采样器）→ 不弹无意义的列表
+            if (this.inferIdentifierType(document, memberMatch[1])) return [];
+        }
+
+        // group_uniforms 分组名补全
+        if (/group_uniforms\s+\w*$/.test(textBeforeCursor)) {
+            return this.getGroupUniformsCompletions(document);
+        }
+
+        // `global ` / `instance ` 之后只可能是 uniform
+        if (/^\s*(global|instance)\s+$/.test(textBeforeCursor)) {
+            const item = new vscode.CompletionItem('uniform', vscode.CompletionItemKind.Keyword);
+            item.detail = 'global/instance uniform 声明';
+            item.sortText = '00';
+            return [item];
         }
 
         // 提供 shader_type 提示
@@ -121,13 +137,19 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
         else if (isAfterVoid) {
             completions = this.getShaderFunctionCompletions(shaderType);
         }
-        // 提供类型和关键字提示
+        // 提供类型和关键字提示（同时给出文档内已声明的符号）
         else if (/^\s*$/.test(textBeforeCursor) || /\s$/.test(textBeforeCursor)) {
-            completions = this.getTypeAndKeywordCompletions();
+            completions = [
+                ...this.getTypeAndKeywordCompletions(),
+                ...this.getUserSymbolCompletions(document, position)
+            ];
         }
-        // 提供内置变量、矩阵和常量提示
+        // 提供内置变量、矩阵和常量提示（叠加用户符号）
         else {
-            completions = this.getAllCompletions();
+            completions = [
+                ...this.getAllCompletions(),
+                ...this.getUserSymbolCompletions(document, position)
+            ];
         }
         
         return completions;
@@ -279,11 +301,26 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
     }
     
     /**
-     * 分量补全：根据基础变量/内置变量的类型给出合法分量名。
-     * 类型判断不出来时给出全集（x/y/z/w + r/g/b/a + s/t/p/q）。
+     * `.` 之后的成员补全：
+     *  - 用户 struct → 字段名
+     *  - 向量/矩阵 → 分量（swizzle）
      */
-    private getSwizzleCompletions(document: vscode.TextDocument, baseName: string): vscode.CompletionItem[] {
+    private getMemberCompletions(document: vscode.TextDocument, baseName: string): vscode.CompletionItem[] {
         const type = this.inferIdentifierType(document, baseName);
+
+        // struct 字段
+        if (type) {
+            const struct = getDocIndex(document).structs.find(s => s.name === type);
+            if (struct) {
+                return struct.fields.map((f, i) => {
+                    const item = new vscode.CompletionItem(f.name, vscode.CompletionItemKind.Field);
+                    item.detail = `${f.type} — ${struct.name}`;
+                    item.sortText = String(i).padStart(2, '0');
+                    return item;
+                });
+            }
+        }
+
         let comps: string[];
 
         switch (type) {
@@ -331,29 +368,106 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
     }
 
     /**
-     * 轻量类型推断：内置变量 → 文档中的 uniform/varying/参数/局部变量声明。
-     * 只用于分量补全这类"猜个大概就够"的场景，不做表达式求值。
+     * 文档内用户符号补全：局部变量/参数 → 全局 uniform/varying/const → struct → 函数。
+     * 这些是最常用的输入对象，优先级高于内置符号。
+     */
+    private getUserSymbolCompletions(document: vscode.TextDocument, position: vscode.Position): vscode.CompletionItem[] {
+        const index = getDocIndex(document);
+        const items: vscode.CompletionItem[] = [];
+        const seen = new Set<string>();
+
+        const pushVar = (v: { name: string; type: string; keyword: string; hint: string }, scopeLabel: string, order: string) => {
+            if (seen.has(v.name)) return;
+            seen.add(v.name);
+            const kind = v.keyword === 'uniform' ? vscode.CompletionItemKind.Property
+                : v.keyword === 'const' ? vscode.CompletionItemKind.Constant
+                : vscode.CompletionItemKind.Variable;
+            const item = new vscode.CompletionItem(v.name, kind);
+            item.detail = `${v.keyword} ${v.type}${scopeLabel ? ' · ' + scopeLabel : ''}`;
+            item.documentation = new vscode.MarkdownString(`\`${v.keyword} ${v.type} ${v.name}\`${v.hint ? '\n\n**hint:** `' + v.hint + '`' : ''}`);
+            item.sortText = order + v.name;
+            items.push(item);
+        };
+
+        // 局部（参数 + 函数体内声明）
+        for (const v of getLocalSymbols(index, position.line)) {
+            pushVar(v, 'local', '01');
+        }
+
+        // 全局
+        for (const v of getGlobalSymbols(index)) {
+            pushVar(v, '', '02');
+        }
+
+        // struct 类型
+        for (const s of index.structs) {
+            if (seen.has(s.name)) continue;
+            seen.add(s.name);
+            const item = new vscode.CompletionItem(s.name, vscode.CompletionItemKind.Struct);
+            item.detail = `struct — ${s.fields.length} fields`;
+            item.sortText = '03' + s.name;
+            items.push(item);
+        }
+
+        // 函数
+        for (const f of index.funcs) {
+            if (seen.has(f.name)) continue;
+            seen.add(f.name);
+            const item = new vscode.CompletionItem(f.name, vscode.CompletionItemKind.Function);
+            item.detail = `${f.returnType} ${f.name}(${f.params.map(p => `${p.type} ${p.name}`.trim()).join(', ')})`;
+            if (f.doc) item.documentation = new vscode.MarkdownString(f.doc);
+            item.insertText = new vscode.SnippetString(
+                f.params.length > 0
+                    ? `${f.name}(\${1:${f.params[0].name}}${f.params.slice(1).map((p, i) => `, \${${i + 2}:${p.name}}`).join('')})`
+                    : `${f.name}()`
+            );
+            item.sortText = '04' + f.name;
+            items.push(item);
+        }
+
+        return items;
+    }
+
+    /** group_uniforms 分组名补全：列出文档中已出现的分组 + 新建分组 */
+    private getGroupUniformsCompletions(document: vscode.TextDocument): vscode.CompletionItem[] {
+        const items: vscode.CompletionItem[] = [];
+        const names = new Set<string>();
+        for (let i = 0; i < document.lineCount; i++) {
+            const m = document.lineAt(i).text.match(/group_uniforms\s+(\w+)\s*;/);
+            if (m) names.add(m[1]);
+        }
+
+        for (const name of names) {
+            const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.EnumMember);
+            item.detail = 'group_uniforms 分组';
+            item.sortText = '00' + name;
+            items.push(item);
+        }
+
+        const newGroup = new vscode.CompletionItem('group_uniforms', vscode.CompletionItemKind.Snippet);
+        newGroup.detail = '新建分组';
+        newGroup.insertText = new vscode.SnippetString('${1:group_name};');
+        newGroup.sortText = '99';
+        items.push(newGroup);
+
+        return items;
+    }
+
+    /**
+     * 轻量类型推断：内置变量 → 文档符号索引中的声明。
+     * 只用于成员补全这类"猜个大概就够"的场景，不做表达式求值。
      */
     private inferIdentifierType(document: vscode.TextDocument, name: string): string | null {
         const builtin = GODOT_SHADER_BUILTINS_MASTER.find(b => b.name === name);
         if (builtin) return builtin.type;
 
-        const lines = document.getText().split('\n');
-        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const index = getDocIndex(document);
+        const vars = index.vars.filter(v => v.name === name);
+        // 优先局部/参数，其次全局
+        const local = vars.find(v => v.keyword === 'local' || v.keyword === 'param');
+        if (local) return local.type;
+        if (vars.length > 0) return vars[0].type;
 
-        // 声明形式：type name / type name; / type name = / 参数里 type name
-        const patterns = [
-            new RegExp('\\b(\\w+)\\s+' + escaped + '\\b\\s*[=;,\\[)）]'),
-            new RegExp('\\b(\\w+)\\s+' + escaped + '\\s*$')
-        ];
-
-        for (const line of lines) {
-            const code = line.replace(/\/\/.*$/, '');
-            for (const re of patterns) {
-                const m = code.match(re);
-                if (m && GODOT_SHADER_TYPES.includes(m[1])) return m[1];
-            }
-        }
         return null;
     }
 
@@ -366,6 +480,8 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
         const shaderTypes = Object.keys(GODOT_SHADER_TYPE_DESCRIPTIONS);
         for (const type of shaderTypes) {
             const item = new vscode.CompletionItem(type, vscode.CompletionItemKind.Enum);
+            // 补全时直接带上分号，省一次输入
+            item.insertText = new vscode.SnippetString(type + ';');
             const info = GODOT_SHADER_TYPE_DESCRIPTIONS[type];
             item.detail = `${info.category}: ${type}`;
             item.documentation = new vscode.MarkdownString(`## ${type}\n\n${td(type, info.desc)}\n\n**Usage:** \`shader_type ${type};\``);

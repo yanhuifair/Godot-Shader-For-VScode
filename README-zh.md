@@ -4,7 +4,7 @@
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.107-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.108-2ea44f)
 ![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
@@ -58,13 +58,19 @@ npx vsce package
 #### 上下文感知补全 —— `shader_type`、`render_mode`、`stencil_mode`、`uniform` 类型、`void` 函数、hint、`#include` 路径——全部根据当前着色器类型过滤。
 
 ```glsl
-shader_type spatial;                    // ← spatial / canvas_item / sky / fog / particles
+shader_type spatial;                    // ← spatial / canvas_item / sky / fog / particles（自动补分号）
 render_mode blend_mix, cull_disabled;   // ← 自动补全当前类型的有效模式
 uniform float strength : hint_range(    // ← hint 补全（source_color、filter_linear …）
 #                                       // ← 预处理器：#ifdef、#include、#define …
 #include "                              // ← 工作区 .gdshaderinc 路径补全
 COLOR.                                  // ← 分量补全（x y z w r g b a s t p q）
+main_light.                             // ← struct 字段补全
+group_uniforms Base;                    // ← 已有检查组名补全
+my_uniform                              // ← 自己声明的 uniform / 函数 / struct / 局部变量
 ```
+
+补全列表里同时包含**当前文件声明的所有符号**：uniform、varying、const、struct、函数（带参数占位），
+以及光标所在函数的局部变量与参数。
 
 #### 悬停文档
 
@@ -76,6 +82,8 @@ dot(normal, light_dir)                // 悬停 → 返回：标量 | 示例：d
 COLOR                                 // 悬停 → 类型：vec4 | 可用：canvas_item、spatial
 tint_sample(uv, amt)                  // 悬停 → 自己的签名、参数列表与上方注释
 tint                                  // 悬停 → uniform vec4 tint | 提示：source_color | 可在检查器中编辑
+LightData                             // 悬停 → struct 字段列表与使用位置
+main_light.direction                  // 悬停 → 字段类型
 ```
 
 #### 签名帮助
@@ -91,7 +99,7 @@ tint_sample(uv, █                     // vec4 tint_sample(vec2 uv, float amt)
 
 #### 内联提示
 
-参数名内联显示，包括用户自定义函数。可开关配置。
+参数名内联显示，包括用户自定义函数与跨行调用。可开关配置。
 
 ```glsl
 mix(x: color1, y: color2, t: 0.5)    // 内置函数
@@ -109,7 +117,7 @@ void fragment() { … }                 // 1 reference
 
 ### 诊断
 
-**17 条规则** —— 智能过滤，跳过注释和字符串。
+**20+ 条规则** —— 智能过滤，跳过注释和字符串。
 
 ```glsl
 shader_type spatial;                  // ✅ 有效
@@ -126,7 +134,9 @@ uniform int value;                    // ❌ 无效类型 'int'（uniform 不能
 |------|---------|
 | `shader_type` 校验 | `shader_type unknown;` → 错误 |
 | 大括号匹配 | `void f() {` 缺 `}` → 缺少闭合大括号 |
-| 分号 | `COLOR = vec3(1.0)` → 缺少 `;` |
+| 分号 | `COLOR = vec3(1.0)` → 缺少 `;`（支持跨行表达式） |
+| `#include` 目标 | 被包含的文件不存在 → 警告 |
+| `shader_type` 位置 | 前面出现其他语句 → 警告 |
 | render_mode | `render_mode bad_mode;` → 对当前类型无效 |
 | 保留字 | `void main() {}` → `main` 是保留字 |
 | 内置变量作用域 | `EYEDIR` 在 spatial 中 → 不可用 |
@@ -188,7 +198,7 @@ void fragment()
 | 工作区符号 | `Ctrl+T` | 跨所有 `.gdshader` 文件搜索 uniform/函数 |
 | 文档链接 | Ctrl+点击 | `#include "common.gdshaderinc"` → 打开文件 |
 | 选择范围 | `Alt+Shift+→` | `单词` → `行` → `{ 块 }` → `void f() {…}` → 全文 |
-| 大纲 | 侧栏 | 树形视图显示 uniform、varying、函数 |
+| 大纲 | 侧栏 | 树形视图显示 struct（含字段）、uniform、varying、函数 |
 
 ### 视觉效果
 
@@ -217,6 +227,8 @@ vec3 sky = vec3(0.3, 0.5, 1.0);     // 点击 vec3 → 颜色选择器
 vec4 col = vec4(1.0, 0.5, 0.2, 1.0); // 点击 vec4 → 颜色选择器
 #define BG_COLOR #478cbf             // 点击十六进制 → 颜色选择器
 ```
+
+**代码折叠** —— 函数/struct 块、连续 `//` 注释块、跨行 `/* */` 块、`#if … #endif` 区域。
 
 **状态栏** —— 右下角显示当前着色器类型。
 

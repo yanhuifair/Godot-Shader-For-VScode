@@ -2,88 +2,74 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
-import { GODOT_SHADER_TYPES } from '../shader-data';
-import { parseDeclaration } from '../utils';
+import { getDocIndex } from '../symbol-index';
 
 export class GodotShaderDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
 
     public provideDocumentSymbols(
         document: vscode.TextDocument,
     ): vscode.ProviderResult<vscode.DocumentSymbol[]> {
+        const index = getDocIndex(document);
         const symbols: vscode.DocumentSymbol[] = [];
 
-        for (let i = 0; i < document.lineCount; i++) {
-            const line = document.lineAt(i);
-            const text = line.text.trim();
+        const lineRange = (line: number): vscode.Range => {
+            const length = document.lineAt(line).text.length;
+            return new vscode.Range(line, 0, line, length);
+        };
+        const nameRange = (line: number, name: string): vscode.Range => {
+            const col = Math.max(0, document.lineAt(line).text.indexOf(name));
+            return new vscode.Range(line, col, line, col + name.length);
+        };
 
-            // 跳过注释和空行
-            if (!text || text.startsWith('//') || text.startsWith('/*') || text.startsWith('*')) {
-                continue;
-            }
-
-            // 匹配 uniform / varying / const 声明（含 global/instance 前缀、varying flat/smooth）
-            const decl = parseDeclaration(text);
-            if (decl) {
-                const detail = `${decl.keyword} ${decl.type}`;
-                const col = line.text.indexOf(decl.name);
-                const selectionRange = new vscode.Range(i, col, i, col + decl.name.length);
-                const range = new vscode.Range(i, 0, i, line.text.length);
-                const kind = decl.keyword === 'uniform' ? vscode.SymbolKind.Property
-                    : decl.keyword === 'const' ? vscode.SymbolKind.Constant
-                    : vscode.SymbolKind.Variable;
-                symbols.push(new vscode.DocumentSymbol(
-                    decl.name,
-                    detail,
-                    kind,
-                    range,
-                    selectionRange
+        // ── struct（含字段子节点） ──
+        for (const s of index.structs) {
+            const symbol = new vscode.DocumentSymbol(
+                s.name,
+                `struct — ${s.fields.length} fields`,
+                vscode.SymbolKind.Struct,
+                new vscode.Range(s.line, 0, s.endLine, document.lineAt(s.endLine).text.length),
+                nameRange(s.line, s.name)
+            );
+            for (const f of s.fields) {
+                symbol.children.push(new vscode.DocumentSymbol(
+                    f.name,
+                    f.type,
+                    vscode.SymbolKind.Field,
+                    lineRange(f.line),
+                    nameRange(f.line, f.name)
                 ));
-                continue;
             }
-
-            // 跳过 shader_type / render_mode / stencil_mode 行（避免误匹配函数）
-            if (/^(shader_type|render_mode|stencil_mode)\b/.test(text)) {
-                continue;
-            }
-
-            // 匹配 Godot 着色器函数: void vertex() {, void fragment() 等
-            const shaderFuncMatch = text.match(/^void\s+(\w+)\s*\([^)]*\)\s*\{?/);
-            if (shaderFuncMatch) {
-                const name = shaderFuncMatch[1];
-                const detail = 'void ' + name + '()';
-                const selectionRange = new vscode.Range(i, line.text.indexOf(name), i, line.text.indexOf(name) + name.length);
-                const range = new vscode.Range(i, 0, i, line.text.length);
-                symbols.push(new vscode.DocumentSymbol(
-                    name,
-                    detail,
-                    vscode.SymbolKind.Function,
-                    range,
-                    selectionRange
-                ));
-                continue;
-            }
-
-            // 匹配用户自定义函数: returnType funcName(params)
-            const funcMatch = text.match(/^(\w+(?:\s+\w+)?)\s+(\w+)\s*\([^)]*\)\s*\{?/);
-            if (funcMatch) {
-                const returnType = funcMatch[1];
-                const name = funcMatch[2];
-                // 排除已知类型被误匹配为函数
-                if (GODOT_SHADER_TYPES.includes(returnType)) {
-                    const detail = `${returnType} ${name}()`;
-                    const selectionRange = new vscode.Range(i, line.text.indexOf(name), i, line.text.indexOf(name) + name.length);
-                    const range = new vscode.Range(i, 0, i, line.text.length);
-                    symbols.push(new vscode.DocumentSymbol(
-                        name,
-                        detail,
-                        vscode.SymbolKind.Function,
-                        range,
-                        selectionRange
-                    ));
-                }
-            }
+            symbols.push(symbol);
         }
 
+        // ── 全局变量：uniform / varying / const ──
+        for (const v of index.vars) {
+            if (v.funcName) continue;
+            const kind = v.keyword === 'uniform' ? vscode.SymbolKind.Property
+                : v.keyword === 'const' ? vscode.SymbolKind.Constant
+                : vscode.SymbolKind.Variable;
+            symbols.push(new vscode.DocumentSymbol(
+                v.name,
+                `${v.keyword} ${v.type}${v.hint ? ' : ' + v.hint : ''}`,
+                kind,
+                lineRange(v.line),
+                nameRange(v.line, v.name)
+            ));
+        }
+
+        // ── 函数（含入口函数） ──
+        for (const f of index.funcs) {
+            symbols.push(new vscode.DocumentSymbol(
+                f.name,
+                `${f.returnType} ${f.name}(${f.params.map(p => `${p.type} ${p.name}`.trim()).join(', ')})`,
+                vscode.SymbolKind.Function,
+                lineRange(f.line),
+                nameRange(f.line, f.name)
+            ));
+        }
+
+        // 按行号排序，大纲里顺序与文档一致
+        symbols.sort((a, b) => a.range.start.line - b.range.start.line);
         return symbols;
     }
 }

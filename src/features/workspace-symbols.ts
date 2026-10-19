@@ -47,7 +47,8 @@ export class GodotShaderWorkspaceSymbolProvider implements vscode.WorkspaceSymbo
 
     private async buildIndex(token: vscode.CancellationToken): Promise<CachedSymbol[]> {
         const results: CachedSymbol[] = [];
-        const files = await vscode.workspace.findFiles('**/*.gdshader', '**/node_modules/**');
+        // 索引 .gdshader 与包含文件（uniform/函数常写在 .gdshaderinc 里）
+        const files = await vscode.workspace.findFiles('**/*.{gdshader,gdshaderinc}', '**/node_modules/**');
 
         for (const file of files) {
             if (token.isCancellationRequested) return results;

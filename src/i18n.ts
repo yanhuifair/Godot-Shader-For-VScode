@@ -159,6 +159,10 @@ zh['diag.invalid_number'] = "无效的数字格式 '{0}'";
 en['diag.invalid_number'] = "Invalid number format '{0}'";
 zh['diag.invalid_uniform_syntax'] = 'uniform 声明语法错误：类型与变量名之间多了一个标识符（{0}）。正确格式: uniform type name;';
 en['diag.invalid_uniform_syntax'] = 'Invalid uniform declaration: extra identifier ({0}) between type and name. Expected: uniform type name;';
+zh['diag.shader_type_not_first'] = 'shader_type 必须是文件中的第一条语句（注释与预处理指令除外）';
+en['diag.shader_type_not_first'] = 'shader_type must be the first statement in the file (comments and preprocessor directives excepted)';
+zh['diag.include_missing'] = "找不到被包含的文件：'{0}'";
+en['diag.include_missing'] = "Included file not found: '{0}'";
 
 // 新增诊断（v1.0.65+）
 zh['diag.unused_uniform'] = "uniform '{0}' 已声明但从未使用";
@@ -182,6 +186,10 @@ en['hover.params'] = 'Parameters';
 zh['hover.hint'] = '提示';
 en['hover.hint'] = 'Hint';
 zh['hover.inspector_hint'] = '可在检查器（Inspector）中编辑该参数';
+zh['hover.used_by'] = '用于';
+zh['link.open_include'] = '打开 {0}';
+en['hover.used_by'] = 'Used by';
+en['link.open_include'] = 'Open {0}';
 en['hover.inspector_hint'] = 'Editable in the Inspector';
 
 // include 补全标签

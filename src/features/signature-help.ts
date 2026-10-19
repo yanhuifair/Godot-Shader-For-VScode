@@ -3,20 +3,12 @@
 
 import * as vscode from 'vscode';
 import { GODOT_SHADER_FUNCTIONS } from '../shader-data';
-import { collectFuncBlocks, computeCodeOnlyLines } from '../utils';
+import { getDocIndex } from '../symbol-index';
 
 // 预构建函数名 → 数据映射（O(1) 查找）
 const FUNC_MAP: Map<string, { name: string; signature: string; description: string }> = new Map();
 for (const f of GODOT_SHADER_FUNCTIONS) {
     FUNC_MAP.set(f.name, f);
-}
-
-interface UserFunc {
-    name: string;
-    returnType: string;
-    params: string[];
-    /** 定义行上方的连续注释 */
-    doc: string;
 }
 
 export class GodotShaderSignatureHelpProvider implements vscode.SignatureHelpProvider {
@@ -37,14 +29,11 @@ export class GodotShaderSignatureHelpProvider implements vscode.SignatureHelpPro
         help.activeParameter = activeParameter;
 
         // 1) 文档内的用户自定义函数（优先，允许覆盖内置同名）
-        const userFunc = this.findUserFunc(document, funcName);
+        const userFunc = getDocIndex(document).funcs.find(f => f.name === funcName);
         if (userFunc) {
-            const label = `${userFunc.returnType} ${userFunc.name}(${userFunc.params.join(', ')})`;
+            const label = `${userFunc.returnType} ${userFunc.name}(${userFunc.params.map(p => `${p.type} ${p.name}`.trim()).join(', ')})`;
             const info = new vscode.SignatureInformation(label, userFunc.doc || undefined);
-            info.parameters = userFunc.params.map(p => {
-                const parts = p.trim().split(/\s+/);
-                return new vscode.ParameterInformation(p.trim(), parts.length > 1 ? parts[0] : undefined);
-            });
+            info.parameters = userFunc.params.map(p => new vscode.ParameterInformation(p.name, p.type || undefined));
             help.signatures = [info];
             help.activeSignature = 0;
             return help;
@@ -130,37 +119,6 @@ export class GodotShaderSignatureHelpProvider implements vscode.SignatureHelpPro
         }
 
         return { funcName: nameMatch[1], activeParameter: commaCount };
-    }
-
-    /** 在文档中查找用户自定义函数定义 */
-    private findUserFunc(document: vscode.TextDocument, name: string): UserFunc | null {
-        const lines: string[] = [];
-        for (let i = 0; i < document.lineCount; i++) lines.push(document.lineAt(i).text);
-        const codeLines = computeCodeOnlyLines(lines);
-        const blocks = collectFuncBlocks(codeLines);
-        const block = blocks.find(b => b.name === name);
-        if (!block) return null;
-
-        const headerLine = codeLines[block.headerLine];
-        const m = headerLine.match(/^\s*((?:\w+\s+)*?)(\w+)\s*\(([^)]*)\)/);
-        const returnType = m ? (m[1].trim() || 'void') : 'void';
-        const paramStr = m ? m[3] : '';
-        const params = paramStr.trim() ? paramStr.split(',').map(p => p.trim()) : [];
-
-        // 收集定义上方的连续注释作为文档
-        const docLines: string[] = [];
-        for (let i = block.headerLine - 1; i >= 0; i--) {
-            const t = lines[i].trim();
-            if (t.startsWith('//')) {
-                docLines.unshift(t.replace(/^\/\/\s?/, ''));
-            } else if (t === '' && docLines.length === 0) {
-                continue;
-            } else {
-                break;
-            }
-        }
-
-        return { name, returnType, params, doc: docLines.join('\n') };
     }
 
     // 从函数签名中提取参数列表

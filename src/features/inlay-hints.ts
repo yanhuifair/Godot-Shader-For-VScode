@@ -3,7 +3,7 @@
 
 import * as vscode from 'vscode';
 import { GODOT_SHADER_FUNCTIONS, GODOT_SHADER_TYPES } from '../shader-data';
-import { isInCommentOrString } from '../utils';
+import { computeCodeOnlyLines } from '../utils';
 
 /** 类型名集合：构造函数 vec3(...) / float(...) 不是函数调用，不能显示参数名提示 */
 const TYPE_SET = new Set<string>(GODOT_SHADER_TYPES);
@@ -11,8 +11,9 @@ const TYPE_SET = new Set<string>(GODOT_SHADER_TYPES);
 const RETURN_TYPE_RE = /(?:^|\b)(void|bool|int|uint|float|vec2|vec3|vec4|ivec2|ivec3|ivec4|uvec2|uvec3|uvec4|bvec2|bvec3|bvec4|mat2|mat3|mat4|sampler\w+)\s+$/;
 
 /**
- * InlayHintsProvider — 在函数调用参数前显示参数名提示
- * 例如: mix(|x, y, a) → mix(x:, y:, a:)
+ * InlayHintsProvider — 在函数调用实参前显示参数名提示
+ * 例如: mix(|x, y, a) → mix(x: , y: , a: )
+ * 支持跨行调用（按整份文档分析，而不是逐行）。
  */
 export class GodotShaderInlayHintsProvider implements vscode.InlayHintsProvider {
 
@@ -67,59 +68,69 @@ export class GodotShaderInlayHintsProvider implements vscode.InlayHintsProvider 
             .get<boolean>('inlayHints.showParameterNames', true);
         if (!showHints) return [];
 
+        const rawLines: string[] = [];
+        for (let i = 0; i < document.lineCount; i++) rawLines.push(document.lineAt(i).text);
+        // 注释/字符串替换为等长空格：注释里提到的函数调用不会冒出提示
+        const codeLines = computeCodeOnlyLines(rawLines);
+
+        // 拼接为整份文本，并记录每行起始偏移（偏移与原文一一对应）
+        const lineStarts: number[] = [];
+        let text = '';
+        for (const line of codeLines) {
+            lineStarts.push(text.length);
+            text += line + '\n';
+        }
+
         // 合并内置函数 + 文档中用户自定义函数的参数名
-        const userParams = this.extractUserFuncParams(document);
         const mergedParams = new Map(GodotShaderInlayHintsProvider.funcParamMap);
-        for (const [name, params] of userParams) {
+        for (const [name, params] of this.extractUserFuncParams(document)) {
             mergedParams.set(name, params);
         }
 
-        const hints: vscode.InlayHint[] = [];
+        /** 偏移 → 行列 */
+        const toPosition = (offset: number): vscode.Position => {
+            let low = 0;
+            let high = lineStarts.length - 1;
+            while (low < high) {
+                const mid = (low + high + 1) >> 1;
+                if (lineStarts[mid] <= offset) low = mid;
+                else high = mid - 1;
+            }
+            return new vscode.Position(low, offset - lineStarts[low]);
+        };
 
-        for (let line = range.start.line; line <= range.end.line; line++) {
+        const hints: vscode.InlayHint[] = [];
+        const callRegex = /\b([A-Za-z_]\w*)\s*\(/g;
+        let match: RegExpExecArray | null;
+
+        while ((match = callRegex.exec(text)) !== null) {
             if (token.isCancellationRequested) break;
 
-            const lineText = document.lineAt(line).text;
+            const funcName = match[1];
+            const openParen = match.index + match[0].length - 1;
 
-            // 查找所有函数调用: funcName(
-            const funcCallRegex = /\b([a-zA-Z_]\w*)\s*\(/g;
-            let match: RegExpExecArray | null;
+            // 只看请求范围内的调用起始行
+            const startPos = toPosition(match.index);
+            if (startPos.line < range.start.line || startPos.line > range.end.line) continue;
 
-            while ((match = funcCallRegex.exec(lineText)) !== null) {
-                const funcName = match[1];
-                const openParenPos = match.index + match[0].length - 1; // '(' 的位置
+            if (TYPE_SET.has(funcName)) continue;
+            if (RETURN_TYPE_RE.test(text.substring(0, match.index))) continue;
 
-                // 构造函数（vec3(...)）不是调用
-                if (TYPE_SET.has(funcName)) continue;
-                // 函数定义行（`vec4 helper(` / `void fragment(`）本身不加参数名提示
-                if (RETURN_TYPE_RE.test(lineText.substring(0, match.index))) continue;
-                // 注释或字符串里的文字不处理
-                if (isInCommentOrString(lineText, match.index)) continue;
+            const paramNames = mergedParams.get(funcName);
+            if (!paramNames || paramNames.length === 0) continue;
 
-                const paramNames = mergedParams.get(funcName);
-                if (!paramNames || paramNames.length === 0) {
-                    // 无参函数，不显示提示
-                    continue;
-                }
+            const argOffsets = this.extractArgOffsets(text, openParen);
+            if (argOffsets.length === 0) continue;
 
-                // 提取调用中的参数
-                const args = this.extractArgs(lineText, openParenPos);
-                if (args.length === 0) continue;
-
-                // 为每个实参添加参数名提示
-                for (let i = 0; i < Math.min(args.length, paramNames.length); i++) {
-                    const argPos = args[i];
-                    const paramName = paramNames[i];
-
-                    const hint = new vscode.InlayHint(
-                        new vscode.Position(line, argPos),
-                        `${paramName}: `,
-                        vscode.InlayHintKind.Parameter
-                    );
-                    hint.paddingLeft = false;
-                    hint.paddingRight = false;
-                    hints.push(hint);
-                }
+            for (let i = 0; i < Math.min(argOffsets.length, paramNames.length); i++) {
+                const hint = new vscode.InlayHint(
+                    toPosition(argOffsets[i]),
+                    `${paramNames[i]}: `,
+                    vscode.InlayHintKind.Parameter
+                );
+                hint.paddingLeft = false;
+                hint.paddingRight = false;
+                hints.push(hint);
             }
         }
 
@@ -127,56 +138,43 @@ export class GodotShaderInlayHintsProvider implements vscode.InlayHintsProvider 
     }
 
     /**
-     * 从开括号位置提取函数调用的各个参数起始位置
+     * 从开括号位置提取各实参的起始偏移（支持跨行，忽略括号内嵌套与字符串）
      */
-    private extractArgs(lineText: string, openParenPos: number): number[] {
+    private extractArgOffsets(text: string, openParenPos: number): number[] {
         const args: number[] = [];
-
         let depth = 0;
-        let currentArgStart = openParenPos + 1;
-        let inString = false;
-        let stringChar = '';
+        let argStart = -1;
 
-        for (let i = openParenPos; i < lineText.length; i++) {
-            const ch = lineText[i];
-
-            // 处理字符串
-            if (!inString && (ch === '"' || ch === "'")) {
-                inString = true;
-                stringChar = ch;
-                continue;
-            }
-            if (inString && ch === stringChar && lineText[i - 1] !== '\\') {
-                inString = false;
-                continue;
-            }
-            if (inString) continue;
+        for (let i = openParenPos; i < text.length; i++) {
+            const ch = text[i];
 
             if (ch === '(') {
                 depth++;
-                if (depth === 1) {
-                    currentArgStart = i + 1;
-                }
-            } else if (ch === ')') {
+                if (depth === 1) argStart = i + 1;
+                continue;
+            }
+            if (ch === ')') {
                 depth--;
                 if (depth === 0) {
-                    // 最后一个参数
-                    const argText = lineText.substring(currentArgStart, i).trim();
-                    if (argText) {
-                        args.push(currentArgStart);
-                    }
+                    this.pushArg(args, text, argStart, i);
                     break;
                 }
-            } else if (ch === ',' && depth === 1) {
-                const argText = lineText.substring(currentArgStart, i).trim();
-                if (argText) {
-                    args.push(currentArgStart);
-                }
-                currentArgStart = i + 1;
+                continue;
+            }
+            if (ch === ',' && depth === 1) {
+                this.pushArg(args, text, argStart, i);
+                argStart = i + 1;
             }
         }
 
         return args;
+    }
+
+    /** 记录实参起始位置（跳过空白），空实参忽略 */
+    private pushArg(args: number[], text: string, from: number, to: number): void {
+        let i = from;
+        while (i < to && /\s/.test(text[i])) i++;
+        if (i < to) args.push(i);
     }
 
     /**
@@ -185,11 +183,10 @@ export class GodotShaderInlayHintsProvider implements vscode.InlayHintsProvider 
      */
     private extractUserFuncParams(document: vscode.TextDocument): Map<string, string[]> {
         const result = new Map<string, string[]>();
-        const text = document.getText();
+        const rawLines: string[] = [];
+        for (let i = 0; i < document.lineCount; i++) rawLines.push(document.lineAt(i).text);
+        const text = computeCodeOnlyLines(rawLines).join('\n');
 
-        // 匹配函数定义: returnType funcName(params)
-        // 返回类型可以是 void/float/vec3 等，函数名后面跟 (
-        // 排除: shader_type, render_mode, uniform, varying, in, out, const, if, for, while, switch
         const funcDefRegex = /^(?!(shader_type|render_mode|uniform|varying|in\b|out\b|const\b|if\b|for\b|while\b|switch\b))\s*(\w+(?:\s+\w+)?)\s+(\w+)\s*\(([^)]*)\)/gm;
 
         let match: RegExpExecArray | null;
@@ -199,29 +196,19 @@ export class GodotShaderInlayHintsProvider implements vscode.InlayHintsProvider 
 
             // 跳过着色器入口函数（已有内置签名）
             if (['vertex', 'fragment', 'light', 'sky', 'fog'].includes(funcName)) continue;
-
-            // 跳过已在内置列表中的函数
             if (GodotShaderInlayHintsProvider.funcParamMap.has(funcName)) continue;
-
             if (!paramsStr.trim()) continue;
 
-            // 提取参数名：去掉类型前缀和默认值
             const paramNames = paramsStr.split(',').map(p => {
-                // "float x" → "x", "vec3 color = vec3(1.0)" → "color"
-                const parts = p.trim().split(/\s+/);
-                // 找第一个不是类型的词（类型在 GODOT_SHADER_TYPES 中）
-                for (let i = 0; i < parts.length; i++) {
-                    const part = parts[i];
-                    // 跳过 = 和默认值
-                    if (part === '=') break;
-                    // 跳过类型名和修饰符
+                const parts = p.split('=')[0].trim().split(/\s+/);
+                for (const part of parts) {
                     if (/^(float|int|uint|bool|vec[234]|ivec[234]|uvec[234]|bvec[234]|mat[234]|sampler\w+|void|in|out|inout)$/.test(part)) {
                         continue;
                     }
                     return part;
                 }
-                return parts[0]; // fallback
-            }).filter(p => p);
+                return parts[0];
+            }).filter(Boolean);
 
             if (paramNames.length > 0) {
                 result.set(funcName, paramNames);

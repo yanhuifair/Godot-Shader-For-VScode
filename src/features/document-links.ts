@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
+import { t } from '../i18n';
 
 /**
  * DocumentLinkProvider — 让 #include "path" 可点击跳转
@@ -39,7 +40,7 @@ export class GodotShaderDocumentLinkProvider implements vscode.DocumentLinkProvi
                 );
 
                 const link = new vscode.DocumentLink(range, targetUri);
-                link.tooltip = `Open ${includePath}`;
+                link.tooltip = t('link.open_include', includePath);
                 links.push(link);
             }
         }

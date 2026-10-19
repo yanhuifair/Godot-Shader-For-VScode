@@ -4,7 +4,7 @@
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.107-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.108-2ea44f)
 ![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
@@ -58,13 +58,20 @@ Then in VS Code: `Ctrl+Shift+P` → **Extensions: Install from VSIX...** → sel
 #### Context-aware Completion — `shader_type`, `render_mode`, `stencil_mode`, `uniform` types, `void` functions, hints, `#include` paths — all filtered by current shader type.
 
 ```glsl
-shader_type spatial;                    // ← spatial / canvas_item / sky / fog / particles
+shader_type spatial;                    // ← spatial / canvas_item / sky / fog / particles (+ auto `;`)
 render_mode blend_mix, cull_disabled;   // ← auto-completes valid modes for spatial
 uniform float strength : hint_range(    // ← hint completions (source_color, filter_linear, …)
 #                                       // ← preprocessor: #ifdef, #include, #define, …
 #include "                              // ← workspace .gdshaderinc path completions
 COLOR.                                  // ← swizzle completions (x y z w r g b a s t p q)
+main_light.                             // ← struct field completions
+group_uniforms Base;                    // ← existing inspector group names
+my_uniform                              // ← your own uniforms / functions / structs / locals
 ```
+
+The completion list also contains **every symbol declared in the current file**: uniforms, varyings,
+constants, structs, functions (inserted with their parameters) and the locals/parameters of the
+function you are typing in.
 
 #### Hover Documentation
 
@@ -76,6 +83,8 @@ dot(normal, light_dir)                // hover → Returns: scalar | Example: do
 COLOR                                 // hover → Type: vec4 | Available in: canvas_item, spatial
 tint_sample(uv, amt)                  // hover → your signature, parameters and the comment above it
 tint                                  // hover → uniform vec4 tint | Hint: source_color | Editable in the Inspector
+LightData                             // hover → struct fields and where it is used
+main_light.direction                  // hover → field type
 ```
 
 #### Signature Help
@@ -91,7 +100,7 @@ tint_sample(uv, █                     // vec4 tint_sample(vec2 uv, float amt)
 
 #### Inlay Hints
 
-Parameter names inline, including user-defined functions. Configurable on/off.
+Parameter names inline, including user-defined functions and multi-line calls. Configurable on/off.
 
 ```glsl
 mix(x: color1, y: color2, t: 0.5)    // built-in functions
@@ -109,7 +118,7 @@ void fragment() { … }                 // 1 reference
 
 ### Diagnostics
 
-**17 Rules** — Smart filtering skips comments and strings.
+**20+ Rules** — Smart filtering skips comments and strings.
 
 ```glsl
 shader_type spatial;                  // ✅ valid
@@ -120,16 +129,20 @@ render_mode invalid_mode;             // ❌ 'invalid_mode' is invalid for spati
 uniform int value;                    // ❌ Invalid type 'int' (uniforms can't be int)
 
 // { " }                               // ✅ braces in comments/strings ignored
+#include "missing.gdshaderinc"        // ⚠️ Included file not found
 ```
 
 | Rule | Example |
 |------|---------|
 | `shader_type` validation | `shader_type unknown;` -> error |
+| `shader_type` position | Statement before `shader_type` -> warning |
 | Brace matching | `void f() {` without `}` -> missing closing brace |
-| Semicolon | `COLOR = vec3(1.0)` -> missing `;` |
+| Semicolon | `COLOR = vec3(1.0)` -> missing `;` (multi-line expressions understood) |
+| `#include` target | File not found -> warning |
 | render_mode | `render_mode bad_mode;` -> invalid for current type |
 | Reserved words | `void main() {}` -> `main` is reserved |
 | Built-in scope | `EYEDIR` in spatial -> not available |
+| Read-only built-ins | Writing `LIGHT` in fragment -> error |
 | Duplicate declarations | Two `uniform float x;` -> duplicate |
 | const init | `const float x;` -> must be initialized |
 | Control flow | `break` outside loop/switch -> error |
@@ -188,7 +201,7 @@ void fragment()
 | Workspace Symbols | `Ctrl+T` | Search uniforms/functions across all `.gdshader` files |
 | Document Links | Ctrl+Click | `#include "common.gdshaderinc"` → opens the file |
 | Selection Range | `Alt+Shift+→` | `word` → `line` → `{ block }` → `void f() {…}` → full doc |
-| Outline | Sidebar | Shows uniforms, varyings, functions in tree view |
+| Outline | Sidebar | Shows structs (with fields), uniforms, varyings and functions in tree view |
 
 ### Visual
 
@@ -209,6 +222,8 @@ vec3 disabled_color = vec3(1.0, 0.0, 0.0);
 float disabled_value = 1.0;
 #endif
 ```
+
+**Folding** — function/struct bodies, consecutive `//` comment blocks, multi-line `/* */` blocks and `#if… #endif` regions.
 
 **Color Picker** — click color values:
 

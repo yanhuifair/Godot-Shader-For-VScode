@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
+import { computeCodeOnlyLines } from '../utils';
 
 /**
  * SelectionRangeProvider — 智能选区逐级扩展
@@ -50,9 +51,13 @@ export class GodotShaderSelectionRangeProvider implements vscode.SelectionRangeP
      */
     private findEnclosingBlock(document: vscode.TextDocument, targetLine: number): vscode.Range {
         const braceStack: number[] = []; // 存储 { 的行号
+        const rawLines: string[] = [];
+        for (let i = 0; i < document.lineCount; i++) rawLines.push(document.lineAt(i).text);
+        // 注释/字符串里的 { } 不参与块判定
+        const codeLines = computeCodeOnlyLines(rawLines);
 
-        for (let i = 0; i < document.lineCount; i++) {
-            const text = document.lineAt(i).text;
+        for (let i = 0; i < codeLines.length; i++) {
+            const text = codeLines[i];
             for (let j = 0; j < text.length; j++) {
                 if (text[j] === '{') {
                     braceStack.push(i);

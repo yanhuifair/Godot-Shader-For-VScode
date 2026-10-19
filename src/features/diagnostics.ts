@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 import { GODOT_SHADER_BUILTINS, GODOT_SHADER_RENDER_MODES, GODOT_SHADER_HINTS, getVariableShaderTypes } from '../shader-data';
 import { t } from '../i18n';
 import { computeCodeOnlyLines, isInCommentOrString, parseDeclaration } from '../utils';
@@ -70,6 +72,9 @@ export class GodotShaderDiagnosticProvider {
 
         // 2. 检查大括号匹配
         this.checkBraceMatching(lines, diagnostics, document);
+
+        // 2b. 检查 #include 目标是否存在
+        this.checkIncludes(lines, diagnostics, document);
 
         // 3. 检查分号
         this.checkSemicolons(lines, diagnostics, document);
@@ -141,12 +146,14 @@ export class GodotShaderDiagnosticProvider {
         }
 
         let found = false;
+        let shaderTypeLine = -1;
         const validTypes = ['canvas_item', 'fog', 'particles', 'sky', 'spatial'];
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
             if (line.startsWith('shader_type')) {
                 found = true;
+                shaderTypeLine = i;
                 const match = line.match(/^shader_type\s+(\w+)\s*;/);
                 if (!match) {
                     diagnostics.push({
@@ -177,6 +184,58 @@ export class GodotShaderDiagnosticProvider {
                 message: t('diag.missing_shader_type'),
                 source: 'godot-shader'
             });
+            return;
+        }
+
+        // shader_type 必须是第一条语句（注释与预处理指令允许出现在前面）
+        for (let k = 0; k < shaderTypeLine; k++) {
+            const text = lines[k].trim();
+            if (!text || text.startsWith('//') || text.startsWith('/*') ||
+                text.startsWith('*') || text.startsWith('#') || text.startsWith('*/')) {
+                continue;
+            }
+            diagnostics.push({
+                severity: vscode.DiagnosticSeverity.Warning,
+                range: new vscode.Range(k, 0, k, lines[k].length),
+                message: t('diag.shader_type_not_first'),
+                source: 'godot-shader'
+            });
+            break;
+        }
+    }
+
+    // 检查 #include 目标文件是否存在（仅本地文件系统，virtual/remote FS 跳过）
+    private checkIncludes(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        if (document.uri.scheme !== 'file') return;
+
+        for (let i = 0; i < lines.length; i++) {
+            const m = lines[i].match(/^\s*#include\s+"([^"]+)"/);
+            if (!m) continue;
+
+            const includePath = m[1];
+            let target = '';
+
+            if (includePath.startsWith('res://')) {
+                const folders = vscode.workspace.workspaceFolders;
+                if (!folders || folders.length === 0) continue;
+                target = path.join(folders[0].uri.fsPath, includePath.substring('res://'.length));
+            } else {
+                target = path.join(path.dirname(document.uri.fsPath), includePath);
+            }
+
+            try {
+                if (!fs.existsSync(target)) {
+                    const idx = lines[i].indexOf(includePath);
+                    diagnostics.push({
+                        severity: vscode.DiagnosticSeverity.Warning,
+                        range: new vscode.Range(i, idx, i, idx + includePath.length),
+                        message: t('diag.include_missing', includePath),
+                        source: 'godot-shader'
+                    });
+                }
+            } catch {
+                // 无法访问文件系统时忽略
+            }
         }
     }
 
@@ -320,6 +379,11 @@ export class GodotShaderDiagnosticProvider {
     private shouldHaveSemicolon(line: string): boolean {
         // 变量声明
         if (/^(uniform|varying|in|out|const)\s+/.test(line)) {
+            return true;
+        }
+
+        // Inspector 分组指令
+        if (/^group_uniforms\b/.test(line)) {
             return true;
         }
 

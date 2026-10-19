@@ -500,7 +500,9 @@ export const GODOT_SHADER_KEYWORDS = [
     "if", "else", "for", "while", "do",
     "return", "break", "continue",
     "switch", "case", "default",
-    "discard", "in", "out", "inout"
+    "discard", "in", "out", "inout",
+    // Godot 4 额外关键字/修饰符
+    "global", "instance", "group_uniforms", "flat", "smooth"
 ];
 
 // 关键字描述（单一数据源，供 hover 和 completion 共用）
@@ -528,6 +530,11 @@ export const GODOT_SHADER_KEYWORD_INFO: {[key: string]: {category: string, desc:
     'case': { category: 'Control Flow', desc: 'switch 语句中的一个分支。后跟常量值和冒号。' },
     'default': { category: 'Control Flow', desc: 'switch 语句中的默认分支。当没有 case 匹配时执行。' },
     'discard': { category: 'Control Flow', desc: '丢弃当前片段，不进行后续处理和输出。只能在 fragment() 中使用。' },
+    'global': { category: 'Modifier', desc: '修饰 uniform：全局 uniform，可在项目设置中统一编辑（格式: global uniform type name;）' },
+    'instance': { category: 'Modifier', desc: '修饰 uniform：每个实例独立的 uniform（格式: instance uniform type name;）' },
+    'group_uniforms': { category: 'Declaration', desc: '把后续 uniform 归入一个检查组（Inspector 分组）。格式: group_uniforms name; 用 group_uniforms; 结束当前分组' },
+    'flat': { category: 'Modifier', desc: 'varying 插值限定符：不插值，按 provoking vertex 取值（适合整数/ID）' },
+    'smooth': { category: 'Modifier', desc: 'varying 插值限定符：平滑插值（默认行为）' },
     'vertex': { category: 'Shader Function', desc: '顶点着色器函数。用于修改顶点位置、法线和 UV 等属性。' },
     'fragment': { category: 'Shader Function', desc: '片段着色器函数。用于计算每个像素的最终颜色。' },
     'light': { category: 'Shader Function', desc: '光照着色器函数。用于自定义光照计算（仅 spatial）。' },
