@@ -51,8 +51,8 @@ vscode.workspace.onDidChangeConfiguration((e) => {
 
 export class GodotShaderCompletionProvider implements vscode.CompletionItemProvider {
     
-    // 触发字符 - 添加空格支持
-    public static readonly triggerCharacters = ['.', ':', ',', '(', '#'];
+    // 触发字符：`.` 用于分量补全，`:` 用于 uniform hint，`#` 用于预处理器
+    public static readonly triggerCharacters = ['.', ':', '#'];
     
     public provideCompletionItems(
         document: vscode.TextDocument,
@@ -88,6 +88,13 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
         const isPreprocessor = /^\s*#\w*$/.test(textBeforeCursor);
         if (isPreprocessor) {
             return this.getPreprocessorCompletions(document);
+        }
+
+        // 分量（swizzle）补全 — 依据前一个标识符的类型给出 x/y/z/w、r/g/b/a、s/t/p/q
+        const swizzleMatch = /([A-Za-z_]\w*)\.[A-Za-z_]*$/.exec(textBeforeCursor);
+        if (swizzleMatch) {
+            const comps = this.getSwizzleCompletions(document, swizzleMatch[1]);
+            if (comps.length > 0) return comps;
         }
 
         // 提供 shader_type 提示
@@ -271,6 +278,85 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
         return items;
     }
     
+    /**
+     * 分量补全：根据基础变量/内置变量的类型给出合法分量名。
+     * 类型判断不出来时给出全集（x/y/z/w + r/g/b/a + s/t/p/q）。
+     */
+    private getSwizzleCompletions(document: vscode.TextDocument, baseName: string): vscode.CompletionItem[] {
+        const type = this.inferIdentifierType(document, baseName);
+        let comps: string[];
+
+        switch (type) {
+            case 'float':
+            case 'int':
+            case 'uint':
+            case 'bool':
+                return []; // 标量没有分量
+            case 'vec2':
+            case 'ivec2':
+            case 'uvec2':
+            case 'bvec2':
+                comps = ['x', 'y', 'r', 'g', 's', 't'];
+                break;
+            case 'vec3':
+            case 'ivec3':
+            case 'uvec3':
+            case 'bvec3':
+                comps = ['x', 'y', 'z', 'r', 'g', 'b', 's', 't', 'p'];
+                break;
+            case 'vec4':
+            case 'ivec4':
+            case 'uvec4':
+            case 'bvec4':
+                comps = ['x', 'y', 'z', 'w', 'r', 'g', 'b', 'a', 's', 't', 'p', 'q'];
+                break;
+            default:
+                if (type && /^(mat[234])$/.test(type)) {
+                    comps = ['x', 'y', 'z', 'w'];
+                    break;
+                }
+                if (type && /^sampler/.test(type)) {
+                    return [];
+                }
+                // 类型未知 → 全集
+                comps = ['x', 'y', 'z', 'w', 'r', 'g', 'b', 'a', 's', 't', 'p', 'q'];
+        }
+
+        return comps.map((c, i) => {
+            const item = new vscode.CompletionItem(c, vscode.CompletionItemKind.Property);
+            item.detail = `swizzle component${type ? ' (' + type + ')' : ''}`;
+            item.sortText = String(i).padStart(2, '0');
+            return item;
+        });
+    }
+
+    /**
+     * 轻量类型推断：内置变量 → 文档中的 uniform/varying/参数/局部变量声明。
+     * 只用于分量补全这类"猜个大概就够"的场景，不做表达式求值。
+     */
+    private inferIdentifierType(document: vscode.TextDocument, name: string): string | null {
+        const builtin = GODOT_SHADER_BUILTINS_MASTER.find(b => b.name === name);
+        if (builtin) return builtin.type;
+
+        const lines = document.getText().split('\n');
+        const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+        // 声明形式：type name / type name; / type name = / 参数里 type name
+        const patterns = [
+            new RegExp('\\b(\\w+)\\s+' + escaped + '\\b\\s*[=;,\\[)）]'),
+            new RegExp('\\b(\\w+)\\s+' + escaped + '\\s*$')
+        ];
+
+        for (const line of lines) {
+            const code = line.replace(/\/\/.*$/, '');
+            for (const re of patterns) {
+                const m = code.match(re);
+                if (m && GODOT_SHADER_TYPES.includes(m[1])) return m[1];
+            }
+        }
+        return null;
+    }
+
     private getShaderTypeCompletions(): vscode.CompletionItem[] {
         const lang = getLang();
         if (cachedShaderTypeCompletions && cachedShaderTypeCompletions.lang === lang) {

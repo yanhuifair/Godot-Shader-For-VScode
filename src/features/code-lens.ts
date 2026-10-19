@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
-import { escapeRegExp, parseDeclaration } from '../utils';
+import { escapeRegExp, parseDeclaration, computeCodeOnlyLines } from '../utils';
 import { GODOT_SHADER_KEYWORD_SET } from '../shader-data';
 import { getLang } from '../i18n';
 
@@ -89,10 +89,13 @@ export class GodotShaderCodeLensProvider implements vscode.CodeLensProvider {
 
     /**
      * 计算文档中每个标识符的出现次数
+     * 与「查找引用」保持一致：忽略注释和字符串里的同名文字，否则 CodeLens 的数字会比引用列表多
      */
     private computeReferenceCounts(document: vscode.TextDocument): Map<string, number> {
         const counts = new Map<string, number>();
-        const text = document.getText();
+        const rawLines: string[] = [];
+        for (let i = 0; i < document.lineCount; i++) rawLines.push(document.lineAt(i).text);
+        const text = computeCodeOnlyLines(rawLines).join('\n');
 
         // 匹配所有标识符
         const wordRegex = /\b([a-zA-Z_]\w*)\b/g;

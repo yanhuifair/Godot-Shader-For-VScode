@@ -21,6 +21,8 @@ export class GodotShaderCodeActionProvider implements vscode.CodeActionProvider 
                 actions.push(this.createFixAddSemicolon(document, diagnostic));
             } else if (msg.includes('shader_type') && (msg.includes('Missing') || msg.includes('缺少'))) {
                 actions.push(this.createFixAddShaderType(document, diagnostic));
+            } else if ((msg.includes('Unexpected') || msg.includes('多余')) && (msg.includes('brace') || msg.includes('大括号'))) {
+                actions.push(this.createFixRemoveBrace(document, diagnostic));
             } else if ((msg.includes('Missing') || msg.includes('缺少')) && (msg.includes('brace') || msg.includes('大括号'))) {
                 actions.push(this.createFixAddClosingBrace(document, diagnostic));
             }
@@ -51,6 +53,24 @@ export class GodotShaderCodeActionProvider implements vscode.CodeActionProvider 
         fix.edit = new vscode.WorkspaceEdit();
         const insertPos = new vscode.Position(0, 0);
         fix.edit.insert(document.uri, insertPos, 'shader_type canvas_item;\n\n');
+        fix.diagnostics = [diagnostic];
+        fix.isPreferred = true;
+        return fix;
+    }
+
+    // 快速修复：删除多余的反大括号
+    private createFixRemoveBrace(document: vscode.TextDocument, diagnostic: vscode.Diagnostic): vscode.CodeAction {
+        const fix = new vscode.CodeAction(
+            t('fix.remove_brace'),
+            vscode.CodeActionKind.QuickFix
+        );
+        fix.edit = new vscode.WorkspaceEdit();
+        // 诊断范围正好是那个 `}`；若整行只剩它，则连行一起删掉
+        const line = document.lineAt(diagnostic.range.start.line).text;
+        const range = line.trim() === '}'
+            ? document.lineAt(diagnostic.range.start.line).rangeIncludingLineBreak
+            : diagnostic.range;
+        fix.edit.delete(document.uri, range);
         fix.diagnostics = [diagnostic];
         fix.isPreferred = true;
         return fix;

@@ -348,11 +348,10 @@ export class GodotShaderFormatter implements
         // 4b. 分号后添加空格: "a;b" -> "a; b"（排除行尾分号）
         formatted = formatted.replace(/;(\S)/g, '; $1');
         
-        // 5. 冒号后添加空格（用于 uniform hint）: ":filter" -> ": filter"
-        // 排除三元运算符 ? : 和标签 case: default:
-        formatted = formatted.replace(/(:\s*)(?!\s*\?)/g, ': ');
-        // 冒号前统一为单空格: "name :type" -> "name : type"
-        formatted = formatted.replace(/\s{2,}:/g, ' :');
+        // 5. 三元运算符与冒号：统一为 " ? " / " : "（uniform hint 也写成 name : hint）
+        // case / default 标签的冒号在第 11 步统一收掉前面的空格
+        formatted = formatted.replace(/\s*\?\s*/g, ' ? ');
+        formatted = formatted.replace(/\s*:\s*/g, ' : ');
         
         // 6. 预处理指令：移除 # 和指令名之间的空格: "# if" -> "#if"
         formatted = formatted.replace(/#\s+(if|else|endif|define|undef|include|warning|error|pragma|ifdef|ifndef|elif|version|extension)\b/ig, '#$1');
@@ -394,8 +393,9 @@ export class GodotShaderFormatter implements
         formatted = formatted.replace(/([a-zA-Z0-9_\)\]])\s*-\s*=\s*([a-zA-Z0-9_\(\[])/g, '$1 -= $2');
         formatted = formatted.replace(/([a-zA-Z0-9_\)\]])\s*\*\s*=\s*([a-zA-Z0-9_\(\[])/g, '$1 *= $2');
         
-        // 11. 修复 case/default 标签冒号（冒号规则可能误加空格）: "case 0 :" -> "case 0:"
-        formatted = formatted.replace(/\b(case\s+\w+|default)\s*:\s*/g, '$1:');
+        // 11. 修复 case/default 标签冒号（冒号规则会统一加空格）: "case 0 : x" -> "case 0: x"
+        formatted = formatted.replace(/\b(case\s+\w+|default)\s*:\s*(\S)/g, '$1: $2');
+        formatted = formatted.replace(/\b(case\s+\w+|default)\s*:\s*$/g, '$1:');
         
         // 12. 最后折叠多余空格: "a  =  b  +  c" -> "a = b + c"
         formatted = formatted.replace(/\s{2,}/g, ' ');

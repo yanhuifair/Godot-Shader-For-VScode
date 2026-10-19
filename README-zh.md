@@ -4,7 +4,7 @@
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.106-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.107-2ea44f)
 ![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
@@ -63,25 +63,30 @@ render_mode blend_mix, cull_disabled;   // ← 自动补全当前类型的有效
 uniform float strength : hint_range(    // ← hint 补全（source_color、filter_linear …）
 #                                       // ← 预处理器：#ifdef、#include、#define …
 #include "                              // ← 工作区 .gdshaderinc 路径补全
+COLOR.                                  // ← 分量补全（x y z w r g b a s t p q）
 ```
 
 #### 悬停文档
 
-类型、描述、可用着色器类型、返回值范围和使用示例。
+类型、描述、可用着色器类型、返回值范围、使用示例——以及你自己定义的函数与 uniform。
 
 ```glsl
 sin(                                  // 悬停 → 签名：sin(float x)
 dot(normal, light_dir)                // 悬停 → 返回：标量 | 示例：dot(normal, light_dir)
 COLOR                                 // 悬停 → 类型：vec4 | 可用：canvas_item、spatial
+tint_sample(uv, amt)                  // 悬停 → 自己的签名、参数列表与上方注释
+tint                                  // 悬停 → uniform vec4 tint | 提示：source_color | 可在检查器中编辑
 ```
 
 #### 签名帮助
 
-所有内置函数的参数提示。
+所有内置函数的参数提示（按实参个数自动切换重载），以及你自己定义的函数。
 
 ```glsl
 mix(█                                 // mix(vecX a, vecX b, float|vecX t)
 clamp(█                               // clamp(vecX x, vecX|float min, vecX|float max)
+vec3(0.5, 0.5, █                      // vec3(float, float, float)——重载自动切换
+tint_sample(uv, █                     // vec4 tint_sample(vec2 uv, float amt)
 ```
 
 #### 内联提示
@@ -177,9 +182,9 @@ void fragment()
 
 | 动作 | 快捷键 | 示例 |
 |--------|----------|---------|
-| 转到定义 | `F12` | `uniform float x` → 跳转到声明 |
-| 查找引用 | `Shift+F12` | 显示符号的所有使用 |
-| 重命名 | `F2` | 同时重命名所有出现 |
+| 转到定义 | `F12` | `uniform float x` → 跳转到声明；调用 → 定义；局部变量 → 就近声明；参数 → 参数列表 |
+| 查找引用 | `Shift+F12` | 显示符号的所有使用（局部变量只统计所属函数内） |
+| 重命名 | `F2` | 同时重命名所有出现（局部变量不会改到其他函数的同名变量） |
 | 工作区符号 | `Ctrl+T` | 跨所有 `.gdshader` 文件搜索 uniform/函数 |
 | 文档链接 | Ctrl+点击 | `#include "common.gdshaderinc"` → 打开文件 |
 | 选择范围 | `Alt+Shift+→` | `单词` → `行` → `{ 块 }` → `void f() {…}` → 全文 |
@@ -230,6 +235,13 @@ render_mode unshaded;
 void fragment() {
     COLOR = vec3(1.0);
 // 快速修复：添加 }
+
+// 修复前：多了一个闭合大括号
+void fragment() {
+    COLOR = vec3(1.0);
+}
+}
+// 快速修复：删除 }
 ```
 
 ---

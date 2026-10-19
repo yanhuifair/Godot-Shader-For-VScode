@@ -58,6 +58,8 @@ zh['fix.add_shader_type'] = '添加 shader_type canvas_item;';
 en['fix.add_shader_type'] = 'Add shader_type canvas_item;';
 zh['fix.add_brace'] = '补全缺少的反大括号 }';
 en['fix.add_brace'] = 'Add missing closing brace }';
+zh['fix.remove_brace'] = '删除多余的反大括号 }';
+en['fix.remove_brace'] = 'Remove unexpected closing brace }';
 
 // 可用 shader_type
 zh['available_in'] = '适用的着色器类型';
@@ -175,6 +177,12 @@ zh['hover.example'] = '示例';
 en['hover.example'] = 'Example';
 zh['hover.returns'] = '返回值';
 en['hover.returns'] = 'Returns';
+zh['hover.params'] = '参数';
+en['hover.params'] = 'Parameters';
+zh['hover.hint'] = '提示';
+en['hover.hint'] = 'Hint';
+zh['hover.inspector_hint'] = '可在检查器（Inspector）中编辑该参数';
+en['hover.inspector_hint'] = 'Editable in the Inspector';
 
 // include 补全标签
 zh['include.gdshaderinc'] = 'Godot Shader 包含文件';

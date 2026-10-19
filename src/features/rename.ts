@@ -3,7 +3,7 @@
 
 import * as vscode from 'vscode';
 import { GODOT_SHADER_KEYWORD_SET, GODOT_SHADER_GLSL_BUILTIN_SET, GODOT_SHADER_BUILTIN_NAME_SET } from '../shader-data';
-import { escapeRegExp, isInCommentOrString } from '../utils';
+import { computeCodeOnlyLines, escapeRegExp, getSymbolScope } from '../utils';
 
 export class GodotShaderRenameProvider implements vscode.RenameProvider {
 
@@ -49,19 +49,23 @@ export class GodotShaderRenameProvider implements vscode.RenameProvider {
         const targetWord = document.getText(wordRange);
         const edit = new vscode.WorkspaceEdit();
 
+        const lines: string[] = [];
         for (let i = 0; i < document.lineCount; i++) {
-            const line = document.lineAt(i);
-            const text = line.text;
+            lines.push(document.lineAt(i).text);
+        }
+        const codeLines = computeCodeOnlyLines(lines);
+        // 局部变量（函数参数 / 函数体内声明）只在所属函数范围内重命名，
+        // 否则另一个函数里的同名变量会被一起改掉
+        const scope = getSymbolScope(codeLines, position.line, targetWord);
+        const wordRegex = new RegExp('\\b' + escapeRegExp(targetWord) + '\\b', 'g');
 
-            const wordRegex = new RegExp('\\b' + escapeRegExp(targetWord) + '\\b', 'g');
+        for (let i = scope.start; i <= scope.end && i < codeLines.length; i++) {
+            const text = codeLines[i];
+            if (!text) continue;
+
+            wordRegex.lastIndex = 0;
             let match: RegExpExecArray | null;
-
             while ((match = wordRegex.exec(text)) !== null) {
-                // 跳过注释和字符串内的匹配
-                if (isInCommentOrString(text, match.index)) {
-                    continue;
-                }
-
                 const range = new vscode.Range(i, match.index, i, match.index + targetWord.length);
                 edit.replace(document.uri, range, newName);
             }

@@ -4,7 +4,7 @@
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.106-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.107-2ea44f)
 ![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
@@ -63,25 +63,30 @@ render_mode blend_mix, cull_disabled;   // ← auto-completes valid modes for sp
 uniform float strength : hint_range(    // ← hint completions (source_color, filter_linear, …)
 #                                       // ← preprocessor: #ifdef, #include, #define, …
 #include "                              // ← workspace .gdshaderinc path completions
+COLOR.                                  // ← swizzle completions (x y z w r g b a s t p q)
 ```
 
 #### Hover Documentation
 
-Type, description, available shader types, return value ranges, and usage examples.
+Type, description, available shader types, return value ranges, usage examples — plus your own functions and uniforms.
 
 ```glsl
 sin(                                  // hover → Signature: sin(float x)
 dot(normal, light_dir)                // hover → Returns: scalar | Example: dot(normal, light_dir)
 COLOR                                 // hover → Type: vec4 | Available in: canvas_item, spatial
+tint_sample(uv, amt)                  // hover → your signature, parameters and the comment above it
+tint                                  // hover → uniform vec4 tint | Hint: source_color | Editable in the Inspector
 ```
 
 #### Signature Help
 
-Parameter hints for all built-in functions.
+Parameter hints for all built-in functions (overloads picked by argument count) and for functions you define.
 
 ```glsl
 mix(█                                 // mix(vecX a, vecX b, float|vecX t)
 clamp(█                               // clamp(vecX x, vecX|float min, vecX|float max)
+vec3(0.5, 0.5, █                      // vec3(float, float, float) — overload resolved automatically
+tint_sample(uv, █                     // vec4 tint_sample(vec2 uv, float amt)
 ```
 
 #### Inlay Hints
@@ -177,9 +182,9 @@ void fragment()
 
 | Action | Shortcut | Example |
 |--------|----------|---------|
-| Go to Definition | `F12` | `uniform float x` → jumps to declaration |
-| Find References | `Shift+F12` | Shows all usages of a symbol |
-| Rename | `F2` | Rename all occurrences at once |
+| Go to Definition | `F12` | `uniform float x` → jumps to declaration; calls → definitions; locals → the nearest declaration; params → the parameter list |
+| Find References | `Shift+F12` | Shows all usages of a symbol (locals are scoped to their function) |
+| Rename | `F2` | Rename all occurrences at once (local variables stay inside their function) |
 | Workspace Symbols | `Ctrl+T` | Search uniforms/functions across all `.gdshader` files |
 | Document Links | Ctrl+Click | `#include "common.gdshaderinc"` → opens the file |
 | Selection Range | `Alt+Shift+→` | `word` → `line` → `{ block }` → `void f() {…}` → full doc |
@@ -230,6 +235,13 @@ render_mode unshaded;
 void fragment() {
     COLOR = vec3(1.0);
 // Quick Fix: Add }
+
+// Before: one closing brace too many
+void fragment() {
+    COLOR = vec3(1.0);
+}
+}
+// Quick Fix: Remove }
 ```
 
 ---

@@ -17,7 +17,7 @@ import {
     getVariableShaderTypes
 } from '../shader-data';
 import { t, td, getLang } from '../i18n';
-import { getShaderType, parseDeclaration } from '../utils';
+import { getShaderType, parseDeclaration, collectFuncBlocks, computeCodeOnlyLines } from '../utils';
 
 // 预构建内置变量 name→entry 映射（O(1) 查找）
 const BUILTIN_MAP: Map<string, { name: string; type: string; description: string }> = new Map();
@@ -76,37 +76,82 @@ const FUNCTION_EXAMPLES: Record<string, string> = {
 };
 
 // 文档级用户变量缓存（per-document URI）
-const userVarCache = new Map<string, Array<{ keyword: string; type: string; name: string; line: number }>>();
+const userVarCache = new Map<string, Array<{ keyword: string; type: string; name: string; line: number; hint: string }>>();
+
+// 文档级用户函数缓存（名字 → 签名/注释），供 hover 展示自定义函数说明
+interface UserFuncInfo { name: string; returnType: string; params: string[]; doc: string }
+const userFuncCache = new Map<string, Map<string, UserFuncInfo>>();
 
 // 文档关闭或修改时清理缓存
 vscode.workspace.onDidCloseTextDocument((doc) => {
     if (doc.languageId === 'godot-shader') {
         userVarCache.delete(doc.uri.toString());
+        userFuncCache.delete(doc.uri.toString());
     }
 });
 
 vscode.workspace.onDidChangeTextDocument((e) => {
     if (e.document.languageId === 'godot-shader') {
         userVarCache.delete(e.document.uri.toString());
+        userFuncCache.delete(e.document.uri.toString());
     }
 });
 
+// 构建文档的用户函数缓存
+function buildUserFuncCache(document: vscode.TextDocument): void {
+    const lines: string[] = [];
+    for (let i = 0; i < document.lineCount; i++) lines.push(document.lineAt(i).text);
+    const codeLines = computeCodeOnlyLines(lines);
+
+    const map = new Map<string, UserFuncInfo>();
+    for (const block of collectFuncBlocks(codeLines)) {
+        const header = codeLines[block.headerLine];
+        const m = header.match(/^\s*((?:\w+\s+)*?)(\w+)\s*\(([^)]*)\)/);
+        const returnType = m && m[1].trim() ? m[1].trim() : 'void';
+        const paramStr = m ? m[3] : '';
+        const params = paramStr.trim() ? paramStr.split(',').map(p => p.trim()) : [];
+
+        // 定义上方的连续 // 注释
+        const docLines: string[] = [];
+        for (let i = block.headerLine - 1; i >= 0; i--) {
+            const t = lines[i].trim();
+            if (t.startsWith('//')) docLines.unshift(t.replace(/^\/\/\s?/, ''));
+            else if (t === '' && docLines.length === 0) continue;
+            else break;
+        }
+
+        map.set(block.name, { name: block.name, returnType, params, doc: docLines.join('\n') });
+    }
+    userFuncCache.set(document.uri.toString(), map);
+}
+
+// 获取文档的用户函数缓存（按需重建）
+function getUserFuncCache(document: vscode.TextDocument): Map<string, UserFuncInfo> {
+    const key = document.uri.toString();
+    if (!userFuncCache.has(key)) buildUserFuncCache(document);
+    return userFuncCache.get(key)!;
+}
+
 // 构建文档的用户变量缓存
 function buildUserVarCache(document: vscode.TextDocument): void {
-    const vars: Array<{ keyword: string; type: string; name: string; line: number }> = [];
+    const vars: Array<{ keyword: string; type: string; name: string; line: number; hint: string }> = [];
     for (let i = 0; i < document.lineCount; i++) {
-        const line = document.lineAt(i).text.trim();
+        const raw = document.lineAt(i).text;
+        const line = raw.trim();
         // parseDeclaration 兼容 global/instance uniform 与 varying flat/smooth
         const decl = parseDeclaration(line);
         if (decl) {
-            vars.push({ keyword: decl.keyword, type: decl.type, name: decl.name, line: i });
+            // 取出 `: source_color, filter_linear` 这样的 hint 部分（到 = 或 ; 为止）
+            const hintMatch = raw.match(/:\s*([^=;]+)/);
+            const hint = hintMatch ? hintMatch[1].trim() : '';
+            vars.push({ keyword: decl.keyword, type: decl.type, name: decl.name, line: i, hint });
         }
     }
     userVarCache.set(document.uri.toString(), vars);
 }
 
 // 获取文档的用户变量缓存（按需重建）
-function getUserVarCache(document: vscode.TextDocument): Array<{ keyword: string; type: string; name: string; line: number }> {
+function getUserVarCache(document: vscode.TextDocument): Array<{ keyword: string; type: string; name: string; line: number; hint: string }> {
     const key = document.uri.toString();
     if (!userVarCache.has(key)) {
         buildUserVarCache(document);
@@ -415,9 +460,30 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
             return new vscode.Hover(markdown, range);
         }
         
+        // 查找用户自定义函数（优先于内置同名函数，便于查看自己的签名与注释说明）
+        const userFunc = getUserFuncCache(document).get(word);
+        if (userFunc) {
+            const markdown = new vscode.MarkdownString();
+            markdown.appendMarkdown(`## ${userFunc.name}()\n\n`);
+            markdown.appendMarkdown(`**${t('signature')}:** \`${userFunc.returnType} ${userFunc.name}(${userFunc.params.join(', ')})\`\n\n`);
+            if (userFunc.params.length > 0) {
+                markdown.appendMarkdown(`**${t('hover.params')}:**\n\n`);
+                for (const p of userFunc.params) {
+                    const parts = p.trim().split(/\s+/);
+                    const pname = parts[parts.length - 1];
+                    const ptype = parts.length > 1 ? parts[0] : '';
+                    markdown.appendMarkdown(`- \`${pname}\`${ptype ? ' — `' + ptype + '`' : ''}\n`);
+                }
+                markdown.appendMarkdown('\n');
+            }
+            if (userFunc.doc) {
+                markdown.appendMarkdown(`---\n\n${userFunc.doc}`);
+            }
+            return new vscode.Hover(markdown, range);
+        }
+
         // 查找内置函数
-        const func = this.findFunction(word);
-        if (func) {
+        const func = this.findFunction(word);        if (func) {
             const markdown = new vscode.MarkdownString();
             markdown.appendMarkdown(`## ${func.name}()\n\n`);
             markdown.appendMarkdown(`**${t('signature')}:** \`${func.signature}\`\n\n`);
@@ -441,9 +507,16 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
         const userVar = this.findUserVariable(document, word);
         if (userVar) {
             const markdown = new vscode.MarkdownString();
-            markdown.appendMarkdown(`## ${userVar.name} (${userVar.keyword})\n\n`);
-            markdown.appendMarkdown(`**${t('type_label')}:** \`${userVar.type}\`\n\n`);
+            markdown.appendMarkdown(`## ${userVar.name}\n\n`);
+            markdown.appendMarkdown(`\`${userVar.keyword} ${userVar.type} ${userVar.name}\`\n\n`);
+            if (userVar.hint) {
+                markdown.appendMarkdown(`**${t('hover.hint')}:** \`${userVar.hint}\`\n\n`);
+            }
             markdown.appendMarkdown(`**${t('description')}:** ${td('user_var_description', '用户声明的变量')}`);
+            // uniform 可在检查器中编辑，给出提示更直观
+            if (userVar.keyword === 'uniform') {
+                markdown.appendMarkdown(`\n\n> ${t('hover.inspector_hint')}`);
+            }
             return new vscode.Hover(markdown, range);
         }
         
@@ -456,10 +529,10 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
     }
     
     // 查找用户声明的 uniform/varying/in/out/const 变量（使用文档级缓存）
-    private findUserVariable(document: vscode.TextDocument, name: string): { keyword: string; type: string; name: string } | null {
+    private findUserVariable(document: vscode.TextDocument, name: string): { keyword: string; type: string; name: string; hint: string } | null {
         const decls = getUserVarCache(document);
         const found = decls.find(d => d.name === name);
-        return found ? { keyword: found.keyword, type: found.type, name: found.name } : null;
+        return found ? { keyword: found.keyword, type: found.type, name: found.name, hint: found.hint } : null;
     }
     
     private findFunction(name: string): { name: string; signature: string; description: string } | null {
