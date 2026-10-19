@@ -550,9 +550,10 @@ export const GODOT_SHADER_HINTS = [
     "hint_range", "hint_enum",
     // String
     "hint_multiline_text", "hint_file", "hint_dir",
-    // Filter
+    // Filter（含各向异性过滤：Godot 4 支持 filter_*_mipmap_anisotropic）
     "filter_nearest", "filter_linear",
     "filter_nearest_mipmap", "filter_linear_mipmap",
+    "filter_nearest_mipmap_anisotropic", "filter_linear_mipmap_anisotropic",
     // Repeat
     "repeat_enable", "repeat_disable",
     // Instance
@@ -572,6 +573,7 @@ export const GODOT_SHADER_RENDER_MODES: {[key: string]: string[]} = {
         'light_disabled', 'light_enabled',
         'shadows_disabled', 'shadows_enabled',
         'ambient_light_disabled', 'ambient_light_enabled',
+        'unshaded',
         'skip_vertex_transform',
         'do_not_delay_visibility'
     ],
@@ -580,6 +582,7 @@ export const GODOT_SHADER_RENDER_MODES: {[key: string]: string[]} = {
         'blend_mix', 'blend_add', 'blend_sub', 'blend_mul', 'blend_premul_alpha',
         'depth_draw_never', 'depth_draw_always', 'depth_draw_opaque',
         'cull_disabled', 'cull_front', 'cull_back',
+        'disable_force', 'disable_velocity', 'collision_use_scale', 'particle_collisions_use_depth',
         'particle_collisions_disabled', 'particle_collisions_enabled'
     ],
     'sky': ['use_half_res_pass', 'use_quarter_res_pass', 'disable_fog'],
@@ -646,6 +649,10 @@ export const GODOT_SHADER_RENDER_MODE_DESCRIPTIONS: {[key: string]: {desc: strin
     'ensure_correct_normals': { desc: '当对非均匀缩放的网格应用时使用（当前未实现）', detail: 'Vertex Transform' },
     // 粒子
     'particle_trails': { desc: '在粒子几何体上使用时启用轨迹', detail: 'Particles' },
+    'disable_force': { desc: '禁用粒子受力（重力等），粒子位置仍由速度推进', detail: 'Particles' },
+    'disable_velocity': { desc: '禁用粒子速度积分，位置完全由自定义逻辑控制', detail: 'Particles' },
+    'collision_use_scale': { desc: '粒子碰撞时按缩放比例计算', detail: 'Particles' },
+    'particle_collisions_use_depth': { desc: '粒子碰撞使用深度缓冲', detail: 'Particles' },
     'particle_collisions_disabled': { desc: '禁用粒子碰撞', detail: 'Particles' },
     'particle_collisions_enabled': { desc: '启用粒子碰撞', detail: 'Particles' },
     // Alpha
@@ -757,6 +764,8 @@ export const GODOT_SHADER_HINT_INFO: {[key: string]: {category: string, desc: st
     'filter_linear': { category: 'Filter', desc: '线性过滤（平滑）' },
     'filter_nearest_mipmap': { category: 'Filter', desc: '最近邻 + Mipmap' },
     'filter_linear_mipmap': { category: 'Filter', desc: '线性 + Mipmap' },
+    'filter_nearest_mipmap_anisotropic': { category: 'Filter', desc: '最近邻 + Mipmap + 各向异性过滤' },
+    'filter_linear_mipmap_anisotropic': { category: 'Filter', desc: '线性 + Mipmap + 各向异性过滤' },
     // Texture repeat
     'repeat_enable': { category: 'Repeat', desc: '启用纹理重复（平铺）' },
     'repeat_disable': { category: 'Repeat', desc: '禁用纹理重复（钳制边缘）' },

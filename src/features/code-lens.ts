@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
-import { escapeRegExp } from '../utils';
+import { escapeRegExp, parseDeclaration } from '../utils';
 import { GODOT_SHADER_KEYWORD_SET } from '../shader-data';
 import { getLang } from '../i18n';
 
@@ -38,10 +38,10 @@ export class GodotShaderCodeLensProvider implements vscode.CodeLensProvider {
             const line = document.lineAt(i);
             const text = line.text.trim();
 
-            // 匹配 uniform / varying / const 声明: keyword type name
-            const declMatch = text.match(/^(uniform|varying|const)\s+(\w+)\s+(\w+)/);
-            if (declMatch) {
-                const [, keyword, type, name] = declMatch;
+            // 匹配 uniform / varying / const 声明: keyword type name（含 global/instance 前缀、flat/smooth）
+            const decl = parseDeclaration(text);
+            if (decl && (decl.keyword === 'uniform' || decl.keyword === 'varying' || decl.keyword === 'const')) {
+                const name = decl.name;
                 // 减去声明行自身的一次出现，得到真实引用数
                 const count = Math.max(0, (refCounts.get(name) || 0) - 1);
                 const nameIndex = line.text.indexOf(name);

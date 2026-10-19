@@ -39,9 +39,10 @@ if (fs.existsSync(lockPath)) {
     fs.writeFileSync(lockPath, lockContent, 'utf8');
 }
 
-// 3. 更新 README.md 中的版本 badge
-const readmePath = path.join(root, 'README.md');
-if (fs.existsSync(readmePath)) {
+// 3. 更新 README 中的版本 badge（英文 + 中文都要同步，否则中文徽章会落后）
+for (const name of ['README.md', 'README-zh.md']) {
+    const readmePath = path.join(root, name);
+    if (!fs.existsSync(readmePath)) continue;
     let readme = fs.readFileSync(readmePath, 'utf8');
     readme = readme.replace(
         /version-\d+\.\d+\.\d+/,

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
+import { computeCodeOnlyLines } from '../utils';
 
 export class GodotShaderColorProvider implements vscode.DocumentColorProvider {
 
@@ -17,12 +18,17 @@ export class GodotShaderColorProvider implements vscode.DocumentColorProvider {
 
         const colors: vscode.ColorInformation[] = [];
 
+        // 注释与字符串被替换为等长空格：注释里写的 #FF0000 / vec3(...) 不再弹出取色器
+        const rawLines: string[] = [];
         for (let line = 0; line < document.lineCount; line++) {
-            const text = document.lineAt(line).text;
-            const trimmed = text.trim();
-            
-            // 跳过注释行
-            if (trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) {
+            rawLines.push(document.lineAt(line).text);
+        }
+        const codeLines = computeCodeOnlyLines(rawLines);
+
+        for (let line = 0; line < document.lineCount; line++) {
+            const text = codeLines[line];
+            // 跳过空行 / 纯注释行
+            if (!text.trim()) {
                 continue;
             }
 

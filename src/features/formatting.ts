@@ -75,26 +75,27 @@ export class GodotShaderFormatter implements
                 continue;
             }
             
-            // 块注释保护：检测 /* 开始和 */ 结束，中间行全部保持原样
-            const hasBlockStart = text.includes('/*');
-            const hasBlockEnd = text.includes('*/');
-
+            // 块注释：跨行时中间行原样保留；以 * 开头的续行（Doxygen 风格）同样原样保留
             if (inBlockComment) {
                 lines.push(rawText);
-                if (hasBlockEnd) {
+                if (text.includes('*/')) {
                     inBlockComment = false;
                 }
                 continue;
             }
 
-            if (hasBlockStart) {
+            if (/^\*/.test(text)) {
                 lines.push(rawText);
-                if (!hasBlockEnd || text.indexOf('/*') > text.indexOf('*/')) {
-                    if (hasBlockEnd && text.lastIndexOf('*/') > text.indexOf('/*')) {
-                        inBlockComment = false;
-                    } else {
-                        inBlockComment = true;
-                    }
+                continue;
+            }
+
+            // 只有出现在行注释之前的 /* 才开启块注释（否则 `x = 1; // /*` 会误判）
+            const blockStart = text.indexOf('/*');
+            const lineComment = this.findCommentStart(text);
+            if (blockStart >= 0 && (lineComment < 0 || blockStart < lineComment)) {
+                lines.push(rawText);
+                if (text.indexOf('*/', blockStart + 2) < 0) {
+                    inBlockComment = true;
                 }
                 continue;
             }
@@ -220,7 +221,7 @@ export class GodotShaderFormatter implements
             cleanedLines.pop();
         }
 
-        const eol = this.getEol();
+        const eol = this.getEol(document);
         let result = cleanedLines.join(eol);
         if (this.shouldInsertFinalNewline()) {
             result += eol;
@@ -238,12 +239,14 @@ export class GodotShaderFormatter implements
         return vscode.workspace.getConfiguration('files').get<boolean>('insertFinalNewline', false);
     }
 
-    // 读取编辑器 files.eol 设置
-    private getEol(): string {
+    // 读取行尾风格：优先 files.eol 显式配置，'auto' 时跟随文档本身
+    // （之前一律回退 LF，会把 CRLF 文件整篇改成 LF）
+    private getEol(document?: vscode.TextDocument): string {
         const eol = vscode.workspace.getConfiguration('files').get<string>('eol', 'auto');
         if (eol === '\r\n') return '\r\n';
         if (eol === '\n') return '\n';
-        return '\n'; // auto → 默认 LF
+        if (document && document.eol === vscode.EndOfLine.CRLF) return '\r\n';
+        return '\n'; // auto → 文档为 LF（或未提供文档）
     }
 
     // 读取大括号另起一行设置

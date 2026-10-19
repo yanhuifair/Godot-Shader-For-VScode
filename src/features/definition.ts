@@ -3,6 +3,7 @@
 
 import * as vscode from 'vscode';
 import { GODOT_SHADER_TYPES } from '../shader-data';
+import { parseDeclaration } from '../utils';
 
 export class GodotShaderDefinitionProvider implements vscode.DefinitionProvider {
 
@@ -19,6 +20,13 @@ export class GodotShaderDefinitionProvider implements vscode.DefinitionProvider 
             const quoteEnd = lineText.lastIndexOf('"');
             if (position.character > quoteStart && position.character < quoteEnd) {
                 const includePath = includeMatch[1];
+                // Godot 的 res:// 指向项目根（工作区根目录），不能按"当前文件目录 + res://..."拼接
+                if (includePath.startsWith('res://')) {
+                    const folders = vscode.workspace.workspaceFolders;
+                    if (!folders || folders.length === 0) return null;
+                    const target = vscode.Uri.joinPath(folders[0].uri, includePath.substring('res://'.length));
+                    return new vscode.Location(target, new vscode.Position(0, 0));
+                }
                 const currentDir = vscode.Uri.joinPath(document.uri, '..');
                 const targetUri = vscode.Uri.joinPath(currentDir, includePath);
                 return new vscode.Location(targetUri, new vscode.Position(0, 0));
@@ -35,11 +43,11 @@ export class GodotShaderDefinitionProvider implements vscode.DefinitionProvider 
             const line = document.lineAt(i);
             const text = line.text.trim();
 
-            // 匹配变量声明: uniform/varying/in/out/const type name
-            const declMatch = text.match(/^(uniform|varying|in|out|const)\s+(\w+)\s+(\w+)/);
-            if (declMatch && declMatch[3] === word) {
+            // 匹配变量声明: uniform/varying/in/out/const type name（含 global/instance 前缀）
+            const decl = parseDeclaration(text);
+            if (decl && decl.name === word) {
                 if (i === position.line) continue;
-                const nameIndex = line.text.indexOf(declMatch[3]);
+                const nameIndex = line.text.indexOf(decl.name);
                 return new vscode.Location(
                     document.uri,
                     new vscode.Range(i, nameIndex, i, nameIndex + word.length)

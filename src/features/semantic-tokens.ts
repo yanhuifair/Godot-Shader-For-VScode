@@ -3,6 +3,7 @@
 
 import * as vscode from 'vscode';
 import { GODOT_SHADER_BUILTINS, GODOT_SHADER_TYPES, GODOT_SHADER_KEYWORDS, GODOT_SHADER_HINTS, GODOT_SHADER_STENCIL_MODES } from '../shader-data';
+import { computeCodeOnlyLines } from '../utils';
 
 // 语义令牌类型定义
 const tokenTypes = [
@@ -59,13 +60,20 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
         // 预扫描：找出 #if 0 / #ifdef NEVER 等禁用的块范围
         const disabledRanges = this.findDisabledRanges(document);
 
+        // 注释与字符串被替换成等长空格：注释里的单词不会再被当成变量着色
+        // （语义令牌优先级高于 TextMate 语法，否则行尾注释 / 字符串内容会被改成变量色）
+        const rawLines: string[] = [];
         for (let line = 0; line < document.lineCount; line++) {
-            const text = document.lineAt(line).text;
-            const trimmed = text.trim();
+            rawLines.push(document.lineAt(line).text);
+        }
+        const codeLines = computeCodeOnlyLines(rawLines);
 
-            // 跳过注释行
-            if (trimmed.startsWith('//') || trimmed.startsWith('/*') || 
-                trimmed.startsWith('*')) {
+        for (let line = 0; line < document.lineCount; line++) {
+            const code = codeLines[line];
+            const trimmed = code.trim();
+
+            // 空行 / 纯注释行 / 预处理指令
+            if (!trimmed || trimmed.startsWith('#')) {
                 continue;
             }
 
@@ -75,17 +83,11 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
                 continue;
             }
 
-            // 跳过预处理（非禁用块内的预处理正常着色）
-            if (trimmed.startsWith('//') || trimmed.startsWith('/*') || 
-                trimmed.startsWith('*') || trimmed.startsWith('#')) {
-                continue;
-            }
-
             // 查找所有单词
             const wordRegex = /\b([a-zA-Z_]\w*)\b/g;
             let match: RegExpExecArray | null;
 
-            while ((match = wordRegex.exec(text)) !== null) {
+            while ((match = wordRegex.exec(code)) !== null) {
                 const word = match[1];
                 const start = match.index;
                 const length = word.length;
@@ -94,7 +96,7 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
                 if (/^\d/.test(word) || word.length <= 1) continue;
 
                 // 判断单词类型
-                const classified = this.classifyToken(word, text, start, line);
+                const classified = this.classifyToken(word, code, start, line);
 
                 if (classified) {
                     tokensBuilder.push(line, start, length, classified.tokenType, classified.tokenModifiers);

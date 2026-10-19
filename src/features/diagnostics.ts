@@ -4,11 +4,13 @@
 import * as vscode from 'vscode';
 import { GODOT_SHADER_BUILTINS, GODOT_SHADER_RENDER_MODES, GODOT_SHADER_HINTS, getVariableShaderTypes } from '../shader-data';
 import { t } from '../i18n';
-import { isInCommentOrString } from '../utils';
+import { computeCodeOnlyLines, isInCommentOrString, parseDeclaration } from '../utils';
 
 export class GodotShaderDiagnosticProvider {
     private diagnosticCollection: vscode.DiagnosticCollection;
     private debounceTimer: NodeJS.Timeout | undefined;
+    /** 抹掉注释与字符串后的逐行文本（与原文等长，index 可直接复用） */
+    private codeLines: string[] = [];
 
     constructor() {
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection('godot-shader');
@@ -59,6 +61,9 @@ export class GodotShaderDiagnosticProvider {
         const diagnostics: vscode.Diagnostic[] = [];
         const text = document.getText();
         const lines = text.split('\n');
+        // 预先算好"纯代码"版本：注释与字符串被替换为等长空格，
+        // 后续所有"是否真的是代码"的判断都基于它，避免行内注释/字符串/跨行块注释误报
+        this.codeLines = computeCodeOnlyLines(lines);
 
         // 1. 检查是否有 shader_type 声明
         this.checkShaderType(lines, diagnostics, document);
@@ -268,6 +273,8 @@ export class GodotShaderDiagnosticProvider {
             }
 
             // ── 分号检查 ──
+            // 语句可以跨行书写（运算符写在下一行行首），此时不应报缺少分号
+            if (this.statementContinuesOnNextLine(i)) continue;
             if (this.shouldHaveSemicolon(codeOnly) && !codeOnly.endsWith(';')) {
                 diagnostics.push({
                     severity: vscode.DiagnosticSeverity.Error,
@@ -277,6 +284,23 @@ export class GodotShaderDiagnosticProvider {
                 });
             }
         }
+    }
+
+    /**
+     * 判断语句是否延续到下一行：下一行以运算符 / 逗号 / 右括号开头即视为续行，
+     * 例如
+     *     float x = 1.0
+     *         + 2.0;
+     * 这类写法不应报「缺少分号」。
+     */
+    private statementContinuesOnNextLine(line: number): boolean {
+        for (let k = line + 1; k < this.codeLines.length; k++) {
+            const next = this.codeLines[k].trim();
+            if (!next) continue;
+            if (/^[\)\],]/.test(next)) return true;
+            return /^(\+|-|\*|\/|%|\?|:|\.|&|\||\^|&&|\|\||==|!=|<=|>=|<<|>>)/.test(next);
+        }
+        return false;
     }
 
     // 返回行中第一个 // 注释的位置（排除字符串内的 //），无注释返回 -1
@@ -296,6 +320,12 @@ export class GodotShaderDiagnosticProvider {
     private shouldHaveSemicolon(line: string): boolean {
         // 变量声明
         if (/^(uniform|varying|in|out|const)\s+/.test(line)) {
+            return true;
+        }
+
+        // 局部变量声明: "float v = 1.0" / "vec3 c" / "mat4 m = ..."（函数定义会以 { 或 ) 结尾，已在调用方跳过）
+        if (/^(bool|int|uint|float|vec[234]|ivec[234]|uvec[234]|bvec[234]|mat[234]|sampler\w+)\s+\w+/.test(line) &&
+            !/\(\s*$/.test(line)) {
             return true;
         }
         
@@ -335,6 +365,8 @@ export class GodotShaderDiagnosticProvider {
             if (renderMatch && currentShaderType) {
                 const modes = renderMatch[1].split(',').map(m => m.trim());
                 const validList = GODOT_SHADER_RENDER_MODES[currentShaderType] || [];
+                // 该 shader_type 暂无有效清单（如 fog）→ 无法判定，跳过以免全部误报
+                if (validList.length === 0) continue;
                 
                 for (const mode of modes) {
                     if (!validList.includes(mode)) {
@@ -354,10 +386,10 @@ export class GodotShaderDiagnosticProvider {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
 
-            // 检查 uniform 声明
-            const uniformMatch = line.match(/^uniform\s+(\w+)\s+(\w+)/);
-            if (uniformMatch) {
-                const type = uniformMatch[1];
+            // 检查 uniform 声明（含 global uniform / instance uniform）
+            const decl = parseDeclaration(line);
+            if (decl && decl.keyword === 'uniform') {
+                const type = decl.type;
                 const validTypes = ['bool', 'bvec2', 'bvec3', 'bvec4', 'float', 'int', 'ivec2', 'ivec3', 'ivec4',
                                    'mat2', 'mat3', 'mat4',
                                    'sampler2D', 'sampler2DArray', 'samplerCube', 'samplerExternalOES',
@@ -371,6 +403,17 @@ export class GodotShaderDiagnosticProvider {
                         message: t('diag.invalid_type', type, validTypes.join(', ')),
                         source: 'godot-shader'
                     });
+                } else {
+                    // 类型合法但后面还多一个标识符：uniform vec3 broken_type my_var;
+                    const extra = line.match(/^(?:(?:global|instance)\s+)?uniform\s+\w+\s+(\w+)\s+(\w+)/);
+                    if (extra) {
+                        diagnostics.push({
+                            severity: vscode.DiagnosticSeverity.Error,
+                            range: new vscode.Range(i, 0, i, lines[i].length),
+                            message: t('diag.invalid_uniform_syntax', extra[2]),
+                            source: 'godot-shader'
+                        });
+                    }
                 }
             }
         }
@@ -395,19 +438,21 @@ export class GodotShaderDiagnosticProvider {
         ];
 
         for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmed = line.trim();
+            const trimmed = lines[i].trim();
             // 跳过注释、预处理和声明行
             if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('/*') ||
                 trimmed.startsWith('*') || trimmed.startsWith('#')) {
                 continue;
             }
 
+            // 用 mask 后的代码行匹配，行内注释 / 字符串 / 跨行块注释都不会误报
+            const code = this.codeLines[i] ?? lines[i];
+
             // 使用词边界匹配，避免误报（如 "domain" 中的 "main"）
             for (const word of reservedWords) {
                 const regex = new RegExp('\\b' + word + '\\b');
-                const match = regex.exec(line);
-                if (match && !isInCommentOrString(line, match.index)) {
+                const match = regex.exec(code);
+                if (match) {
                     diagnostics.push({
                         severity: vscode.DiagnosticSeverity.Warning,
                         range: new vscode.Range(i, match.index, i, match.index + word.length),
@@ -447,10 +492,11 @@ export class GodotShaderDiagnosticProvider {
                 continue;
             }
 
-            // 提取行中的大写变量名
+            // 提取行中的大写变量名（用 mask 后的代码行，跳过注释/字符串内容）
             let match;
+            const code = this.codeLines[i] ?? line;
             const regex = new RegExp(varRegex.source, 'g');
-            while ((match = regex.exec(line)) !== null) {
+            while ((match = regex.exec(code)) !== null) {
                 const name = match[0];
                 
                 // 忽略短名称
@@ -472,7 +518,7 @@ export class GodotShaderDiagnosticProvider {
                 // 使用缓存的 getVariableShaderTypes 代替每次重建 lookup map
                 const validTypes = getVariableShaderTypes(name);
                 if (validTypes && !validTypes.includes(shaderType)) {
-                    const validList = validTypes.join('、');
+                    const validList = validTypes.join(t('separator'));
                     diagnostics.push({
                         severity: vscode.DiagnosticSeverity.Error,
                         range: new vscode.Range(i, match.index, i, match.index + name.length),
@@ -492,10 +538,10 @@ export class GodotShaderDiagnosticProvider {
             const line = lines[i].trim();
             if (!line || line.startsWith('//') || line.startsWith('/*')) continue;
 
-            // 匹配 uniform/varying/in/out/const type name
-            const declMatch = line.match(/^(uniform|varying|in|out|const)\s+(\w+)\s+(\w+)/);
+            // 匹配 uniform/varying/in/out/const type name（含 global/instance 前缀、flat/smooth 限定符）
+            const declMatch = parseDeclaration(line);
             if (declMatch) {
-                const name = declMatch[3];
+                const name = declMatch.name;
                 if (declaredNames.has(name)) {
                     const firstLine = declaredNames.get(name)!;
                     diagnostics.push({
@@ -519,8 +565,8 @@ export class GodotShaderDiagnosticProvider {
             const line = lines[i].trim();
             const rawLine = lines[i];
 
-            // 追踪大括号深度
-            for (const ch of rawLine) {
+            // 追踪大括号深度（字符串/注释里的 { } 不计入）
+            for (const ch of (this.codeLines[i] ?? rawLine)) {
                 if (ch === '{') braceDepth++;
                 else if (ch === '}') braceDepth--;
             }
@@ -570,7 +616,8 @@ export class GodotShaderDiagnosticProvider {
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
-            const match = line.match(/^varying\s+(\w+)\s+(\w+)/);
+            // 支持 `varying flat vec3 x` / `varying smooth vec3 x`（flat/smooth 是插值限定符，不是类型）
+            const match = line.match(/^varying\s+(?:(?:flat|smooth)\s+)?(\w+)\s+(\w+)/);
             if (match && !validTypes.includes(match[1])) {
                 diagnostics.push({
                     severity: vscode.DiagnosticSeverity.Error,
@@ -584,82 +631,91 @@ export class GodotShaderDiagnosticProvider {
 
     // 12. 检查 discard / break / continue 上下文
     private checkControlFlow(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
-        let inFragment = false;
-        let inLight = false;
+        // 当前所在的最外层函数（vertex/fragment/light/sky/fog，或 null = 自定义函数/全局）
+        let currentFunc: string | null = null;
+        let depth = 0;
         // 栈：记录每个大括号层级中的上下文标记
-        // each entry: { loop: boolean, switch: boolean }
-        const contextStack: Array<{ loop: boolean; switch: boolean }> = [{ loop: false, switch: false }];
+        const contextStack: Array<{ loop: boolean; switch: boolean }> = [];
 
         for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            const trimmed = line.trim();
+            // 用 mask 后的代码行：注释/字符串里的 discard、break 不再误报
+            const code = this.codeLines[i] ?? lines[i];
 
-            // 追踪着色器函数上下文（仅在外部层级有效）
-            if (contextStack.length <= 1) {
-                if (/^(void\s+)?fragment\s*\(/.test(trimmed)) inFragment = true;
-                if (/^(void\s+)?light\s*\(/.test(trimmed)) inLight = true;
+            // 顶层函数入口识别（`{` 单独成行时保持上一次的识别结果）
+            if (depth === 0) {
+                const header = code.trim();
+                if (header && header !== '{') {
+                    const fm = header.match(/^(?:\w+\s+)?(vertex|fragment|light|sky|fog)\s*\(/);
+                    if (fm) {
+                        currentFunc = fm[1];
+                    } else if (/^\w[\w\s]*\(/.test(header)) {
+                        currentFunc = null; // 其他函数声明（自定义函数）
+                    }
+                }
             }
 
-            // 计算大括号变化
-            for (let j = 0; j < line.length; j++) {
-                const ch = line[j];
-                if (ch === '{') {
-                    // 检查当前行 { 之前的文本
-                    const textBeforeBrace = line.substring(0, j);
-                    let isLoop = /\b(for|while|do)\b/.test(textBeforeBrace);
-                    let isSwitch = /\bswitch\b/.test(textBeforeBrace);
+            const tokenRegex = /[A-Za-z_]\w*|[{}]/g;
+            let match: RegExpExecArray | null;
 
-                    // 如果 { 单独成行（前一行可能是 switch/for/while/do）
-                    if (!isLoop && !isSwitch && textBeforeBrace.trim() === '') {
-                        // 回溯查找前一行非空非注释的关键字
+            while ((match = tokenRegex.exec(code)) !== null) {
+                const token = match[0];
+
+                if (token === '{') {
+                    const before = code.substring(0, match.index);
+                    let isLoop = /\b(for|while|do)\b/.test(before);
+                    let isSwitch = /\bswitch\b/.test(before);
+
+                    // { 单独成行时，回溯上一行非空非注释内容判断是否循环/switch
+                    if (!isLoop && !isSwitch && before.trim() === '') {
                         for (let k = i - 1; k >= 0; k--) {
-                            const prevLine = lines[k].trim();
-                            if (!prevLine || prevLine.startsWith('//') || prevLine.startsWith('/*')) {
-                                continue;
-                            }
-                            isLoop = /\b(for|while|do)\b/.test(prevLine);
-                            isSwitch = /\bswitch\b/.test(prevLine);
+                            const prev = (this.codeLines[k] ?? lines[k]).trim();
+                            if (!prev) continue;
+                            isLoop = /\b(for|while|do)\b/.test(prev);
+                            isSwitch = /\bswitch\b/.test(prev);
                             break;
                         }
                     }
 
+                    const parent = contextStack[contextStack.length - 1];
                     contextStack.push({
-                        loop: contextStack[contextStack.length - 1].loop || isLoop,
-                        switch: contextStack[contextStack.length - 1].switch || isSwitch
+                        loop: (parent?.loop ?? false) || isLoop,
+                        switch: (parent?.switch ?? false) || isSwitch
                     });
-                } else if (ch === '}') {
-                    if (contextStack.length > 1) contextStack.pop();
+                    depth++;
+                    continue;
                 }
-            }
 
-            const ctx = contextStack[contextStack.length - 1];
-
-            // 检查 discard
-            if (trimmed.includes('discard') && !inFragment && !inLight) {
-                const idx = line.indexOf('discard');
-                diagnostics.push({
-                    severity: vscode.DiagnosticSeverity.Error,
-                    range: new vscode.Range(i, idx, i, idx + 7),
-                    message: t('diag.discard_outside_fragment'),
-                    source: 'godot-shader'
-                });
-            }
-
-            // 检查 break / continue
-            const breakMatch = trimmed.match(/\b(break|continue)\b/);
-            if (breakMatch && !trimmed.startsWith('//') && !trimmed.startsWith('/*')) {
-                const keyword = breakMatch[1];
-                const idx = line.indexOf(keyword);
-                if (keyword === 'break' && ctx.switch) {
-                    continue; // break 在 switch 中是合法的
+                if (token === '}') {
+                    if (contextStack.length > 0) contextStack.pop();
+                    depth = Math.max(0, depth - 1);
+                    if (depth === 0) currentFunc = null;
+                    continue;
                 }
-                if (!ctx.loop && !ctx.switch) {
-                    diagnostics.push({
-                        severity: vscode.DiagnosticSeverity.Error,
-                        range: new vscode.Range(i, idx, i, idx + keyword.length),
-                        message: t('diag.keyword_outside_loop', keyword),
-                        source: 'godot-shader'
-                    });
+
+                if (token === 'discard') {
+                    // 只对内置入口函数判定；自定义函数无法确定调用位置（可能被 fragment 调用），不报
+                    if (currentFunc === 'vertex' || currentFunc === 'sky' || currentFunc === 'fog') {
+                        diagnostics.push({
+                            severity: vscode.DiagnosticSeverity.Error,
+                            range: new vscode.Range(i, match.index, i, match.index + token.length),
+                            message: t('diag.discard_outside_fragment'),
+                            source: 'godot-shader'
+                        });
+                    }
+                    continue;
+                }
+
+                if (token === 'break' || token === 'continue') {
+                    const ctx = contextStack[contextStack.length - 1];
+                    if (token === 'break' && ctx?.switch) continue;
+                    if (!ctx?.loop && !ctx?.switch) {
+                        diagnostics.push({
+                            severity: vscode.DiagnosticSeverity.Error,
+                            range: new vscode.Range(i, match.index, i, match.index + token.length),
+                            message: t('diag.keyword_outside_loop', token),
+                            source: 'godot-shader'
+                        });
+                    }
                 }
             }
         }
@@ -716,7 +772,9 @@ export class GodotShaderDiagnosticProvider {
     // 14. 检查数字写法是否合法（Godot/GLSL 数值格式校验）
     private checkNumberFormat(lines: string[], diagnostics: vscode.Diagnostic[]) {
         for (let i = 0; i < lines.length; i++) {
-            const text = lines[i];
+            // 用 mask 后的代码行匹配：注释（含行尾注释、块注释）与字符串里的
+            // "1.0.5" / "v1.2.3" 之类文本不再被当成数字字面量误报
+            const text = this.codeLines[i] ?? lines[i];
 
             // 跳过注释行
             const trimmed = text.trim();
@@ -852,18 +910,21 @@ export class GodotShaderDiagnosticProvider {
 
     // 16. 检查未使用的 uniform/varying 声明
     private checkUnusedDeclarations(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        // .gdshaderinc 里的 uniform 通常由包含它的 .gdshader 使用，单独打开时无法判断 → 跳过
+        if (document.fileName.endsWith('.gdshaderinc')) return;
+
         // 收集所有声明
         const decls: Array<{ name: string; keyword: string; line: number; col: number }> = [];
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const trimmed = line.trim();
-            const match = trimmed.match(/^(uniform|varying)\s+(\w+)\s+(\w+)/);
-            if (match) {
-                const name = match[3];
+            const decl = parseDeclaration(trimmed);
+            if (decl && (decl.keyword === 'uniform' || decl.keyword === 'varying')) {
+                const name = decl.name;
                 // 跳过太短的名称（如 a, b 等测试变量）
                 if (name.length <= 1) continue;
                 const col = line.indexOf(name);
-                decls.push({ keyword: match[1], name, line: i, col });
+                decls.push({ keyword: decl.keyword, name, line: i, col });
             }
         }
 
@@ -876,17 +937,15 @@ export class GodotShaderDiagnosticProvider {
             for (let i = 0; i < lines.length; i++) {
                 if (i === decl.line) continue; // 跳过声明行自身
 
-                const text = lines[i];
+                // 用 mask 后的代码行搜索，跨行块注释与字符串都不会被算作引用
+                const text = this.codeLines[i] ?? lines[i];
                 // 使用词边界匹配
                 const escaped = decl.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp('\\b' + escaped + '\\b', 'g');
                 let match: RegExpExecArray | null;
 
                 while ((match = regex.exec(text)) !== null) {
-                    // 跳过注释和字符串内的引用
-                    if (!isInCommentOrString(text, match.index)) {
-                        refCount++;
-                    }
+                    refCount++;
                 }
             }
 
@@ -907,63 +966,70 @@ export class GodotShaderDiagnosticProvider {
         const config = vscode.workspace.getConfiguration('godot-shader');
         if (!config.get<boolean>('diagnostics.strictMode', false)) return;
 
-        // 追踪循环嵌套深度（按大括号层级）
-        let loopDepth = 0;
-        let braceDepth = 0;
-        // 记录每层是否为循环块
-        const loopAtBraceLevel: boolean[] = [false];
+        // 逐字符维护大括号栈：每个元素表示该层是否为循环块。
+        // 必须按字符出现顺序处理，否则 `if (x) { y(); }` 这类单行块会把
+        // 「先闭合再开启」的顺序颠倒，导致后续循环上下文错位（漏报循环内采样）。
+        const braceLoopStack: boolean[] = [];
+        const loopDepth = () => braceLoopStack.reduce((n, v) => n + (v ? 1 : 0), 0);
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) continue;
+            // 注释/字符串内容已被抹成空格，discard、texture 只在真代码里匹配
+            const code = this.codeLines[i] ?? line;
+            const trimmed = code.trim();
+            if (!trimmed) continue;
 
-            // 检测循环关键字（在同一行内开始循环）
-            const hasLoopKeyword = /\b(for|while|do)\b/.test(trimmed);
-
-            // 处理大括号变化
-            let openCount = 0, closeCount = 0;
-            for (const ch of line) {
-                if (ch === '{') openCount++;
-                else if (ch === '}') closeCount++;
+            // 预先收集本行 texture( 出现的位置
+            const texPositions: number[] = [];
+            const texRe = /\btexture\s*\(/g;
+            let tm: RegExpExecArray | null;
+            while ((tm = texRe.exec(code)) !== null) {
+                texPositions.push(tm.index);
+                texRe.lastIndex = tm.index + tm[0].length;
             }
+            const discardPos = /\bdiscard\b/.exec(code);
 
-            // 先处理闭合（出块）
-            for (let j = 0; j < closeCount; j++) {
-                if (braceDepth > 0) {
-                    if (loopAtBraceLevel[braceDepth]) {
-                        loopDepth--;
+            let texIdx = 0;
+            let openSeen = false;
+
+            for (let j = 0; j < code.length; j++) {
+                if (texIdx < texPositions.length && j === texPositions[texIdx]) {
+                    if (loopDepth() > 0) {
+                        diagnostics.push({
+                            severity: vscode.DiagnosticSeverity.Warning,
+                            range: new vscode.Range(i, j, i, j + 'texture'.length),
+                            message: t('diag.perf_texture_in_loop'),
+                            source: 'godot-shader'
+                        });
                     }
-                    loopAtBraceLevel.pop();
-                    braceDepth--;
+                    texIdx++;
+                }
+
+                const ch = code[j];
+                if (ch === '{') {
+                    const before = code.substring(0, j);
+                    let isLoop = /\b(for|while|do)\b/.test(before);
+                    // { 单独成行时回溯上一行
+                    if (!isLoop && !openSeen && before.trim() === '') {
+                        for (let k = i - 1; k >= 0; k--) {
+                            const prev = (this.codeLines[k] ?? lines[k]).trim();
+                            if (!prev) continue;
+                            isLoop = /\b(for|while|do)\b/.test(prev);
+                            break;
+                        }
+                    }
+                    braceLoopStack.push(isLoop && !openSeen);
+                    openSeen = true;
+                } else if (ch === '}') {
+                    braceLoopStack.pop();
                 }
             }
 
-            // 检查循环内 texture 采样（在开启块之后、闭合之前）
-            if (loopDepth > 0 && /\btexture\s*\(/.test(trimmed)) {
-                const idx = line.indexOf('texture');
-                diagnostics.push({
-                    severity: vscode.DiagnosticSeverity.Warning,
-                    range: new vscode.Range(i, idx, i, idx + 7),
-                    message: t('diag.perf_texture_in_loop'),
-                    source: 'godot-shader'
-                });
-            }
-
-            // 再处理开始（入块）
-            for (let j = 0; j < openCount; j++) {
-                braceDepth++;
-                const isLoop = hasLoopKeyword && j === 0; // 只在第一个 { 标记为循环
-                loopAtBraceLevel.push(isLoop);
-                if (isLoop) loopDepth++;
-            }
-
             // discard 性能提示
-            if (trimmed.includes('discard') && !isInCommentOrString(line, line.indexOf('discard'))) {
-                const idx = trimmed.indexOf('discard');
+            if (discardPos) {
                 diagnostics.push({
                     severity: vscode.DiagnosticSeverity.Information,
-                    range: new vscode.Range(i, idx, i, idx + 7),
+                    range: new vscode.Range(i, discardPos.index, i, discardPos.index + 'discard'.length),
                     message: t('diag.perf_discard_mobile'),
                     source: 'godot-shader'
                 });
@@ -977,11 +1043,12 @@ export class GodotShaderDiagnosticProvider {
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            const trimmed = line.trim();
+            // 用 mask 后的代码行解析，行尾注释（// xxx）不会被当成 hint
+            const trimmed = (this.codeLines[i] ?? line).trim();
 
             // 匹配 uniform type name : hint1, hint2, hint3 ...
             // 支持 : 后跟一个或多个逗号分隔的 hint
-            const match = trimmed.match(/^uniform\s+\w+\s+\w+\s*:\s*(.+)/);
+            const match = trimmed.match(/^(?:(?:global|instance)\s+)?uniform\s+\w+\s+\w+\s*:\s*(.+)/);
             if (!match) continue;
 
             const hintsPart = match[1];
@@ -1151,7 +1218,26 @@ export class GodotShaderDiagnosticProvider {
         readonlyInVertex.add('OUTPUT_IS_SRGB');
         readonlyInVertex.add('VIEWPORT_SIZE');
 
-        for (const v of GODOT_SHADER_BUILTINS.fragment_input || []) readonlyInFragment.add(v.name);
+        // 当前 shader_type（决定 fragment() 里哪些内置变量其实是"可写输出"）
+        let shaderType = '';
+        for (let i = 0; i < lines.length; i++) {
+            const m = lines[i].trim().match(/^shader_type\s+(\w+)/);
+            if (m) { shaderType = m[1]; break; }
+        }
+
+        // fragment() 中可写、但出现在 fragment_input 里的变量，必须从只读集合中剔除，否则误报：
+        //  - DEPTH：空间着色器可在 fragment 中写入以覆盖深度
+        //  - canvas_item：COLOR / VERTEX / UV / UV2 / TEXTURE 都是可写输出
+        const writableInFragment = new Set<string>(['DEPTH']);
+        if (shaderType === 'canvas_item') {
+            for (const name of ['COLOR', 'VERTEX', 'UV', 'UV2', 'TEXTURE', 'NORMAL_TEXTURE']) {
+                writableInFragment.add(name);
+            }
+        }
+
+        for (const v of GODOT_SHADER_BUILTINS.fragment_input || []) {
+            if (!writableInFragment.has(v.name)) readonlyInFragment.add(v.name);
+        }
 
         for (const v of GODOT_SHADER_BUILTINS.light_input || []) readonlyInLight.add(v.name);
 
@@ -1163,8 +1249,8 @@ export class GodotShaderDiagnosticProvider {
             const line = lines[i];
             const trimmed = line.trim();
             if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('/*')) {
-                // 仍需要追踪大括号
-                for (const ch of line) {
+                // 仍需要追踪大括号（不含注释/字符串里的括号）
+                for (const ch of (this.codeLines[i] ?? line)) {
                     if (ch === '{') braceDepth++;
                     else if (ch === '}') braceDepth--;
                 }
@@ -1176,7 +1262,7 @@ export class GodotShaderDiagnosticProvider {
             if (/^(void\s+)?fragment\s*\(/.test(trimmed)) inFragment = true;
             if (/^(void\s+)?light\s*\(/.test(trimmed)) inLight = true;
 
-            for (const ch of line) {
+            for (const ch of (this.codeLines[i] ?? line)) {
                 if (ch === '{') braceDepth++;
                 else if (ch === '}') {
                     braceDepth--;
@@ -1237,7 +1323,9 @@ export class GodotShaderDiagnosticProvider {
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
             const trimmed = line.trim();
-            if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*')) continue;
+            // 跳过注释行与预处理指令（#define 的宏参数不能被当成局部变量）
+            if (!trimmed || trimmed.startsWith('//') || trimmed.startsWith('/*') ||
+                trimmed.startsWith('*') || trimmed.startsWith('#')) continue;
 
             // 检测函数声明进入（排除 struct 声明，避免误将结构体字段当作局部变量）
             const funcMatch = trimmed.match(/^(void\s+)?\w+\s+(\w+)\s*\(([^)]*)\)\s*\{?/);
@@ -1255,19 +1343,20 @@ export class GodotShaderDiagnosticProvider {
             }
 
             // 追踪大括号深度（同时追踪 struct 深度，struct 内部不视为局部变量作用域）
-            for (const ch of line) {
+            const maskedLine = this.codeLines[i] ?? line;
+            for (const ch of maskedLine) {
                 if (ch === '{') {
                     const before = line.substring(0, line.indexOf('{'));
                     if (/\bstruct\b/.test(before)) structDepth++;
                     braceDepth++;
                 } else if (ch === '}') {
-                    if (structDepth > 0) {
-                        structDepth--;
-                    } else {
-                        braceDepth--;
-                        if (braceDepth <= 0 && inFunction) {
-                            flushLocals();
-                        }
+                    // struct 的 } 也要正常回收 braceDepth，否则深度会永久偏移，
+                    // 导致函数作用域判断与 flushLocals 时机错乱
+                    const leavingStruct = structDepth > 0;
+                    if (leavingStruct) structDepth--;
+                    braceDepth--;
+                    if (!leavingStruct && braceDepth <= 0 && inFunction) {
+                        flushLocals();
                     }
                 }
             }
@@ -1276,6 +1365,8 @@ export class GodotShaderDiagnosticProvider {
 
             // 检测局部变量声明: type name = ...; 或 type name;
             // 跳过 uniform/varying/const/void/return 等
+            // 用 mask 后的代码行做匹配，行尾注释里的同名文字不会把变量"标成已使用"
+            const code = this.codeLines[i] ?? line;
             const declMatch = trimmed.match(/^(\w+)\s+(\w+)\s*[=;]/);
             if (declMatch) {
                 const typeName = declMatch[1];
@@ -1287,7 +1378,7 @@ export class GodotShaderDiagnosticProvider {
                         localVars.set(varName, {line: i, col, used: false});
                     }
                     // RHS 中引用的变量标记为已使用（包括自身，如 a = a + 1）
-                    const restAfter = trimmed.substring(declMatch[0].length);
+                    const restAfter = code.trim().substring(declMatch[0].length);
                     for (const [name, info] of localVars) {
                         if (new RegExp('\\b' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(restAfter)) {
                             info.used = true;
@@ -1299,16 +1390,11 @@ export class GodotShaderDiagnosticProvider {
             // 检测变量使用：在非声明行中出现的变量名
             for (const [name, info] of localVars) {
                 if (info.used) continue;
+                // 声明行本身不算使用（该行 RHS 已在上面处理）
+                if (declMatch && declMatch[2] === name) continue;
                 const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const useRegex = new RegExp('\\b' + escaped + '\\b', 'g');
-                let um;
-                while ((um = useRegex.exec(line)) !== null) {
-                    // 排除声明行自身 (该行已被 declMatch 处理)
-                    if (declMatch && declMatch[2] === name) continue;
-                    if (!isInCommentOrString(line, um.index)) {
-                        info.used = true;
-                        break;
-                    }
+                if (new RegExp('\\b' + escaped + '\\b').test(code)) {
+                    info.used = true;
                 }
             }
         }

@@ -2,7 +2,13 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
-import { GODOT_SHADER_FUNCTIONS } from '../shader-data';
+import { GODOT_SHADER_FUNCTIONS, GODOT_SHADER_TYPES } from '../shader-data';
+import { isInCommentOrString } from '../utils';
+
+/** 类型名集合：构造函数 vec3(...) / float(...) 不是函数调用，不能显示参数名提示 */
+const TYPE_SET = new Set<string>(GODOT_SHADER_TYPES);
+/** 函数定义行的返回类型判定（`vec4 helper(` 这种是定义，不是调用） */
+const RETURN_TYPE_RE = /(?:^|\b)(void|bool|int|uint|float|vec2|vec3|vec4|ivec2|ivec3|ivec4|uvec2|uvec3|uvec4|bvec2|bvec3|bvec4|mat2|mat3|mat4|sampler\w+)\s+$/;
 
 /**
  * InlayHintsProvider — 在函数调用参数前显示参数名提示
@@ -27,6 +33,8 @@ export class GodotShaderInlayHintsProvider implements vscode.InlayHintsProvider 
     private static readonly funcParamMap: Map<string, string[]> = (() => {
         const map = new Map<string, string[]>();
         for (const func of GODOT_SHADER_FUNCTIONS) {
+            // 跳过类型构造函数（vec3 / mat4 / float ...），否则 `vec3(1.0)` 会显示 `float: `
+            if (TYPE_SET.has(func.name)) continue;
             const params = GodotShaderInlayHintsProvider.extractParamNames(func.signature);
             if (params.length > 0) {
                 map.set(func.name, params);
@@ -81,6 +89,13 @@ export class GodotShaderInlayHintsProvider implements vscode.InlayHintsProvider 
                 const funcName = match[1];
                 const openParenPos = match.index + match[0].length - 1; // '(' 的位置
 
+                // 构造函数（vec3(...)）不是调用
+                if (TYPE_SET.has(funcName)) continue;
+                // 函数定义行（`vec4 helper(` / `void fragment(`）本身不加参数名提示
+                if (RETURN_TYPE_RE.test(lineText.substring(0, match.index))) continue;
+                // 注释或字符串里的文字不处理
+                if (isInCommentOrString(lineText, match.index)) continue;
+
                 const paramNames = mergedParams.get(funcName);
                 if (!paramNames || paramNames.length === 0) {
                     // 无参函数，不显示提示
@@ -91,7 +106,7 @@ export class GodotShaderInlayHintsProvider implements vscode.InlayHintsProvider 
                 const args = this.extractArgs(lineText, openParenPos);
                 if (args.length === 0) continue;
 
-                // 为每个参数添加 inlay hint（跳过第一个参数）
+                // 为每个实参添加参数名提示
                 for (let i = 0; i < Math.min(args.length, paramNames.length); i++) {
                     const argPos = args[i];
                     const paramName = paramNames[i];

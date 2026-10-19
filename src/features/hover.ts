@@ -17,7 +17,7 @@ import {
     getVariableShaderTypes
 } from '../shader-data';
 import { t, td, getLang } from '../i18n';
-import { getShaderType } from '../utils';
+import { getShaderType, parseDeclaration } from '../utils';
 
 // 预构建内置变量 name→entry 映射（O(1) 查找）
 const BUILTIN_MAP: Map<string, { name: string; type: string; description: string }> = new Map();
@@ -93,13 +93,13 @@ vscode.workspace.onDidChangeTextDocument((e) => {
 
 // 构建文档的用户变量缓存
 function buildUserVarCache(document: vscode.TextDocument): void {
-    const declRegex = /^(uniform|varying|in|out|const)\s+(\w+)\s+(\w+)/;
     const vars: Array<{ keyword: string; type: string; name: string; line: number }> = [];
     for (let i = 0; i < document.lineCount; i++) {
         const line = document.lineAt(i).text.trim();
-        const match = line.match(declRegex);
-        if (match) {
-            vars.push({ keyword: match[1], type: match[2], name: match[3], line: i });
+        // parseDeclaration 兼容 global/instance uniform 与 varying flat/smooth
+        const decl = parseDeclaration(line);
+        if (decl) {
+            vars.push({ keyword: decl.keyword, type: decl.type, name: decl.name, line: i });
         }
     }
     userVarCache.set(document.uri.toString(), vars);

@@ -26,7 +26,6 @@ let cachedAllCompletions: { lang: string; items: vscode.CompletionItem[] } | nul
 let cachedTypeCompletions: { lang: string; items: vscode.CompletionItem[] } | null = null;
 let cachedHintCompletions: { lang: string; items: vscode.CompletionItem[] } | null = null;
 let cachedShaderTypeCompletions: { lang: string; items: vscode.CompletionItem[] } | null = null;
-let cachedTypeKeywordCompletions: { lang: string; items: vscode.CompletionItem[] } | null = null;
 // render_mode/stencil_mode/shader_func 按 shaderType 缓存
 let cachedRenderModeCompletions: Map<string, vscode.CompletionItem[]> = new Map();
 let cachedStencilModeCompletions: Map<string, vscode.CompletionItem[]> = new Map();
@@ -38,7 +37,6 @@ function clearAllCompletionCaches(): void {
     cachedTypeCompletions = null;
     cachedHintCompletions = null;
     cachedShaderTypeCompletions = null;
-    cachedTypeKeywordCompletions = null;
     cachedRenderModeCompletions.clear();
     cachedStencilModeCompletions.clear();
     cachedShaderFuncCompletions.clear();
@@ -74,7 +72,7 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
         const isAfterShaderType = /shader_type\s*$/.test(textBeforeCursor);
         const isAfterRenderMode = /render_mode\s*$/.test(textBeforeCursor) || this.isInRenderModeContext(document, position);
         const isAfterStencilMode = /stencil_mode\s*$/.test(textBeforeCursor) || this.isInStencilModeContext(document, position);
-        const isAfterColon = /:\s*$/.test(textBeforeCursor);
+        const isAfterColon = /:\s*$/.test(textBeforeCursor) && !/\?[^:]*:\s*$/.test(textBeforeCursor);
         const isAfterVoid = /void\s*$/.test(textBeforeCursor);
         // #include 路径补全
         const isIncludePath = /#include\s+"[^"]*$/.test(textBeforeCursor);
@@ -83,7 +81,7 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
         
         // #include 路径补全 — 优先级最高
         if (isIncludePath) {
-            return this.getIncludePathCompletions(document);
+            return this.getIncludePathCompletions(document, position);
         }
 
         // 预处理器指令补全 — #ifdef / #ifndef / #define 等
@@ -180,21 +178,33 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
     }
     
     // #include 路径补全 — 扫描工作区 .gdshaderinc 文件
-    private async getIncludePathCompletions(document: vscode.TextDocument): Promise<vscode.CompletionItem[]> {
+    private async getIncludePathCompletions(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.CompletionItem[]> {
         const items: vscode.CompletionItem[] = [];
         // 从当前行提取用户已输入的路径前缀（而非全文匹配，避免多 #include 时错位）
-        const activeEditor = vscode.window.activeTextEditor;
-        let typedPrefix = '';
-        if (activeEditor && activeEditor.document === document) {
-            const lineText = activeEditor.document.lineAt(activeEditor.selection.active.line).text;
-            const prefixMatch = lineText.match(/#include\s+"([^"]*)$/);
-            typedPrefix = prefixMatch ? prefixMatch[1] : '';
-        }
+        const lineText = document.lineAt(position.line).text;
+        const prefixMatch = lineText.substring(0, position.character).match(/#include\s+"([^"]*)$/);
+        const typedPrefix = prefixMatch ? prefixMatch[1] : '';
+        // 显式指定替换范围：整个已输入路径（含 / 与 res:// 前缀），
+        // 否则 VS Code 只会替换光标前的最后一段单词，导致 "res://a/res://a/b" 这类重复
+        const replaceRange = new vscode.Range(
+            position.line, position.character - typedPrefix.length,
+            position.line, position.character
+        );
 
         try {
             const files = await vscode.workspace.findFiles('**/*.gdshaderinc', '**/node_modules/**', 50);
             const currentDir = vscode.Uri.joinPath(document.uri, '..');
-            
+            // Godot 里 #include 支持 res:// 前缀，过滤前缀时先去掉它，否则一个候选都匹配不到
+            const matchPrefix = typedPrefix.replace(/^res:\/\//, '');
+
+            const makeItem = (relativePath: string, kind: vscode.CompletionItemKind, detail: string, sortKey: string) => {
+                const item = new vscode.CompletionItem(relativePath, kind);
+                item.detail = detail;
+                item.sortText = sortKey + relativePath;
+                item.range = replaceRange;
+                return item;
+            };
+
             for (const file of files) {
                 // 计算相对路径
                 let relativePath = vscode.workspace.asRelativePath(file, false);
@@ -205,18 +215,11 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
                 }
 
                 // 前缀匹配过滤
-                if (typedPrefix && !relativePath.startsWith(typedPrefix)) {
+                if (matchPrefix && !relativePath.startsWith(matchPrefix)) {
                     continue;
                 }
-                
-                const item = new vscode.CompletionItem(relativePath, vscode.CompletionItemKind.File);
-                item.detail = t('include.gdshaderinc');
-                item.sortText = '0' + relativePath;
-                // 替换用户已输入的引号内内容
-                if (typedPrefix) {
-                    item.filterText = typedPrefix + relativePath.substring(typedPrefix.length);
-                }
-                items.push(item);
+
+                items.push(makeItem(relativePath, vscode.CompletionItemKind.File, t('include.gdshaderinc'), '0'));
             }
 
             // 也支持 .gdshader 文件作为 include 目标
@@ -229,12 +232,9 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
                     if (file.fsPath.startsWith(dirPath)) {
                         relativePath = file.fsPath.substring(dirPath.length + 1);
                     }
-                    if (typedPrefix && !relativePath.startsWith(typedPrefix)) continue;
+                    if (matchPrefix && !relativePath.startsWith(matchPrefix)) continue;
 
-                    const item = new vscode.CompletionItem(relativePath, vscode.CompletionItemKind.File);
-                    item.detail = t('include.gdshader');
-                    item.sortText = '1' + relativePath;
-                    items.push(item);
+                    items.push(makeItem(relativePath, vscode.CompletionItemKind.File, t('include.gdshader'), '1'));
                 }
             }
         } catch {

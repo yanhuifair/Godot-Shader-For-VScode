@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
+import { parseDeclaration } from '../utils';
 
 // 缓存解析后的符号数据
 interface CachedSymbol {
@@ -64,25 +65,12 @@ export class GodotShaderWorkspaceSymbolProvider implements vscode.WorkspaceSymbo
                 for (let i = 0; i < lines.length; i++) {
                     const line = lines[i].trim();
 
-                    const uniformMatch = line.match(/^uniform\s+(\w+)\s+(\w+)/);
-                    if (uniformMatch) {
-                        const [, type, name] = uniformMatch;
+                    const decl = parseDeclaration(line);
+                    if (decl && (decl.keyword === 'uniform' || decl.keyword === 'varying')) {
                         results.push({
-                            name,
+                            name: decl.name,
                             kind: vscode.SymbolKind.Variable,
-                            detail: `uniform ${type} (${shaderType})`,
-                            location: new vscode.Location(file, new vscode.Position(i, 0))
-                        });
-                        continue;
-                    }
-
-                    const varyingMatch = line.match(/^varying\s+(\w+)\s+(\w+)/);
-                    if (varyingMatch) {
-                        const [, type, name] = varyingMatch;
-                        results.push({
-                            name,
-                            kind: vscode.SymbolKind.Variable,
-                            detail: `varying ${type} (${shaderType})`,
+                            detail: `${decl.keyword} ${decl.type} (${shaderType})`,
                             location: new vscode.Location(file, new vscode.Position(i, 0))
                         });
                         continue;

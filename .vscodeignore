@@ -1,6 +1,8 @@
 .vscodeignore
 .gitignore
 .vscode/
+.github/
+.workbuddy/
 **/.DS_Store
 *.vsix
 *.gdshader
@@ -14,4 +16,8 @@ src
 tsconfig.json
 package-lock.json
 auto-version.js
-
+out/.tsbuildinfo
+out/*.tsbuildinfo
+test/
+test_file/
+images/appreciate.JPG

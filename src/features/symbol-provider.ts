@@ -3,6 +3,7 @@
 
 import * as vscode from 'vscode';
 import { GODOT_SHADER_TYPES } from '../shader-data';
+import { parseDeclaration } from '../utils';
 
 export class GodotShaderDocumentSymbolProvider implements vscode.DocumentSymbolProvider {
 
@@ -20,51 +21,20 @@ export class GodotShaderDocumentSymbolProvider implements vscode.DocumentSymbolP
                 continue;
             }
 
-            // 匹配 uniform 声明: uniform type name
-            const uniformMatch = text.match(/^(uniform)\s+(\w+)\s+(\w+)/);
-            if (uniformMatch) {
-                const [, keyword, type, name] = uniformMatch;
-                const detail = `${keyword} ${type}`;
-                const selectionRange = new vscode.Range(i, line.text.indexOf(name), i, line.text.indexOf(name) + name.length);
+            // 匹配 uniform / varying / const 声明（含 global/instance 前缀、varying flat/smooth）
+            const decl = parseDeclaration(text);
+            if (decl) {
+                const detail = `${decl.keyword} ${decl.type}`;
+                const col = line.text.indexOf(decl.name);
+                const selectionRange = new vscode.Range(i, col, i, col + decl.name.length);
                 const range = new vscode.Range(i, 0, i, line.text.length);
+                const kind = decl.keyword === 'uniform' ? vscode.SymbolKind.Property
+                    : decl.keyword === 'const' ? vscode.SymbolKind.Constant
+                    : vscode.SymbolKind.Variable;
                 symbols.push(new vscode.DocumentSymbol(
-                    name,
+                    decl.name,
                     detail,
-                    vscode.SymbolKind.Property,
-                    range,
-                    selectionRange
-                ));
-                continue;
-            }
-
-            // 匹配 varying 声明: varying type name
-            const varyingMatch = text.match(/^(varying)\s+(\w+)\s+(\w+)/);
-            if (varyingMatch) {
-                const [, keyword, type, name] = varyingMatch;
-                const detail = `${keyword} ${type}`;
-                const selectionRange = new vscode.Range(i, line.text.indexOf(name), i, line.text.indexOf(name) + name.length);
-                const range = new vscode.Range(i, 0, i, line.text.length);
-                symbols.push(new vscode.DocumentSymbol(
-                    name,
-                    detail,
-                    vscode.SymbolKind.Variable,
-                    range,
-                    selectionRange
-                ));
-                continue;
-            }
-
-            // 匹配 const 声明: const type name
-            const constMatch = text.match(/^const\s+(\w+)\s+(\w+)/);
-            if (constMatch) {
-                const [, type, name] = constMatch;
-                const detail = `const ${type}`;
-                const selectionRange = new vscode.Range(i, line.text.indexOf(name), i, line.text.indexOf(name) + name.length);
-                const range = new vscode.Range(i, 0, i, line.text.length);
-                symbols.push(new vscode.DocumentSymbol(
-                    name,
-                    detail,
-                    vscode.SymbolKind.Constant,
+                    kind,
                     range,
                     selectionRange
                 ));

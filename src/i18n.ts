@@ -155,6 +155,8 @@ zh['diag.stencil_read_no_alpha'] = 'stencil_mode 含 read 读取但不在透明�
 en['diag.stencil_read_no_alpha'] = 'Attempting to use a shader that reads stencil but is not in the alpha queue. Ensure the material uses alpha blending (blend_*) or has depth_draw_never / depth_draw_always / depth_test_disabled.';
 zh['diag.invalid_number'] = "无效的数字格式 '{0}'";
 en['diag.invalid_number'] = "Invalid number format '{0}'";
+zh['diag.invalid_uniform_syntax'] = 'uniform 声明语法错误：类型与变量名之间多了一个标识符（{0}）。正确格式: uniform type name;';
+en['diag.invalid_uniform_syntax'] = 'Invalid uniform declaration: extra identifier ({0}) between type and name. Expected: uniform type name;';
 
 // 新增诊断（v1.0.65+）
 zh['diag.unused_uniform'] = "uniform '{0}' 已声明但从未使用";
