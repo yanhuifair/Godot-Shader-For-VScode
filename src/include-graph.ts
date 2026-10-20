@@ -72,16 +72,35 @@ vscode.workspace.onDidCloseTextDocument((doc) => {
 
 /**
  * 解析 `#include "path"` 的目标 Uri。
- * - `res://x`  → 工作区根目录下的 x
+ * - `res://x`  → 工作区根目录下的 x（多根工作区会挑选真实存在的那个）
  * - 其他       → 相对当前文件所在目录
  */
 export function resolveIncludeUri(fromUri: vscode.Uri, includePath: string): vscode.Uri | null {
     if (includePath.startsWith('res://')) {
         const folders = vscode.workspace.workspaceFolders;
         if (!folders || folders.length === 0) return null;
-        return vscode.Uri.joinPath(folders[0].uri, includePath.substring('res://'.length));
+
+        const rel = includePath.substring('res://'.length);
+        let fallback: vscode.Uri | null = null;
+        for (const folder of folders) {
+            const candidate = vscode.Uri.joinPath(folder.uri, rel);
+            if (!fallback) fallback = candidate;
+            try {
+                if (candidate.scheme === 'file' && fs.existsSync(candidate.fsPath)) return candidate;
+            } catch {
+                // 忽略不可访问的根
+            }
+        }
+        return fallback;
     }
     return vscode.Uri.joinPath(fromUri, '..', includePath);
+}
+
+// ── include 解析日志（排查用，默认关闭，由扩展按配置注入） ──
+let logger: ((message: string) => void) | null = null;
+
+export function setIncludeLogger(fn: ((message: string) => void) | null): void {
+    logger = fn;
 }
 
 /** 读取文件内容：优先用编辑器里的（含未保存改动），否则读磁盘 */
@@ -205,6 +224,13 @@ export function getProjectSymbols(document: vscode.TextDocument): ProjectSymbols
     };
 
     walk(document.uri, localLines, 0);
+
+    // 仅在重建时输出一次摘要，避免刷屏
+    if (logger) {
+        logger(`[include] ${labelOf(document.uri)} → ${value.includes.length} file(s), ${value.missing.length} missing`);
+        for (const inc of value.includes) logger(`  · ${inc.label}`);
+        for (const miss of value.missing) logger(`  ✗ ${miss.includePath} (from ${miss.fromLabel})`);
+    }
 
     projectCache.set(key, { version, value });
     return value;

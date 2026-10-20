@@ -1315,6 +1315,10 @@ export class GodotShaderDiagnosticProvider {
             if (m) { shaderType = m[1]; break; }
         }
 
+        // 没有（或无法识别）shader_type 时无从判断谁是输出，跳过检查，
+        // 否则只报「缺少 shader_type」的文件会连带冒出一堆只读误报
+        if (!shaderType) return;
+
         // fragment() 中可写、但出现在 fragment_input 里的变量，必须从只读集合中剔除，否则误报：
         //  - DEPTH：空间着色器可在 fragment 中写入以覆盖深度
         //  - canvas_item：COLOR / VERTEX / UV / UV2 / TEXTURE 都是可写输出

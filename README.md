@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.111-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.112-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -27,7 +27,7 @@ Full language support for Godot 4 shaders — **20 language providers**, **162 b
 **Repository:** <https://github.com/yanhuifair/Godot-Shader-For-VScode>
 **Marketplace:** <https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode>
 
-[Highlights](#highlights) · [Install](#install) · [Completion](#completion) · [Cross-file](#cross-file-support) · [Hover](#hover) · [Signature help](#signature-help) · [Inlay hints](#inlay-hints) · [CodeLens](#codelens) · [Diagnostics](#diagnostics) · [Formatting](#formatting) · [Navigation](#navigation) · [Commands](#commands) · [Visual](#visual-features) · [Quick fixes](#quick-fixes) · [Snippets](#snippets) · [Configuration](#configuration) · [Requirements](#requirements) · [Limitations](#known-limitations) · [FAQ](#faq) · [Development](#development)
+[Highlights](#highlights) · [Install](#install) · [Completion](#completion) · [Cross-file](#cross-file-support) · [Hover](#hover) · [Signature help](#signature-help) · [Inlay hints](#inlay-hints) · [CodeLens](#codelens) · [Diagnostics](#diagnostics) · [Formatting](#formatting) · [Navigation](#navigation) · [Call hierarchy](#call-hierarchy) · [Commands](#commands) · [Visual](#visual-features) · [Quick fixes](#quick-fixes) · [Snippets](#snippets) · [Configuration](#configuration) · [Requirements](#requirements) · [Limitations](#known-limitations) · [FAQ](#faq) · [Development](#development)
 
 ---
 
@@ -42,6 +42,8 @@ Full language support for Godot 4 shaders — **20 language providers**, **162 b
   too, and the matching `#include` is inserted for you.
 - **One command away** — expand every include into a read-only preview, switch `shader_type`,
   insert a template, reload symbol caches (command palette, context menu, `Ctrl+Alt+E`).
+- **Editing niceties** — on-type formatting (auto-align `}`, normalize `;`), Fix All for
+  auto-fixable diagnostics, and a call hierarchy that walks helper functions across includes.
 - **Comment- and string-aware diagnostics** — 23 rules that never fire on text inside comments,
   strings or `#if 0` blocks.
 - **Real formatting** — switch/case indentation, operator spacing, brace style, CRLF preservation.
@@ -247,6 +249,10 @@ void fragment() {               void fragment()
 Preprocessor directives always stay at column 0, and `case`/`default` labels plus ternary
 `? :` spacing are normalized.
 
+**On-type formatting** — enable `editor.formatOnType` and the formatter tidies as you type:
+`}` snaps to the indentation of its opening brace, `;` normalizes the line it ends.
+
+
 ### Navigation
 
 | Action | Shortcut | What it does |
@@ -257,10 +263,23 @@ Preprocessor directives always stay at column 0, and `case`/`default` labels plu
 | Workspace Symbols | `Ctrl+T` | Uniforms/varyings/functions across all `.gdshader` **and** `.gdshaderinc` files |
 | Document Links | `Ctrl+Click` | `#include "common.gdshaderinc"` → opens the file |
 | Selection Range | `Alt+Shift+→` | `word` → `line` → `{ block }` → `void f() {…}` → full document |
+| Call Hierarchy | `Shift+Alt+H` | Who calls this function and what it calls (searches the current include graph) |
 | Outline | Sidebar | Structs (with fields), uniforms, varyings, functions |
 
 Other shortcuts: `Ctrl+Space` completion · `Shift+Alt+F` format document · `Ctrl+.` quick fix ·
 `Alt+Shift+→` expand selection.
+
+### Call Hierarchy
+
+Put the cursor on a function and press `Shift+Alt+H` (or right-click → *Show Call Hierarchy*).
+Incoming calls are searched in the current file **and** every file it includes, so helper
+functions declared in `.gdshaderinc` show up on both sides.
+
+```glsl
+float ripple(vec2 p) { … }            // ← 2 incoming calls
+float wave(vec2 uv) { return ripple(uv) * 2.0; }   // calls ripple
+void fragment() { COLOR = vec4(wave(UV)); }        // calls wave
+```
 
 ### Commands
 
@@ -316,6 +335,9 @@ void fragment() { …          // Quick Fix: add missing }
 }                             // Quick Fix: remove stray }
 ```
 
+Every fixable diagnostic can also be applied in one go: run **Source Action… → Fix All** or set
+`"editor.codeActionsOnSave": { "source.fixAll": "explicit" }`.
+
 ### Snippets
 
 65 snippets, grouped by prefix (type the prefix, press `Tab`):
@@ -323,6 +345,7 @@ void fragment() { …          // Quick Fix: add missing }
 | Prefix | Inserts |
 |--------|---------|
 | `shader-{canvas,spatial,sky,fog,particles}` | Minimal shader template |
+
 | `shader-{canvas,spatial}-full` | Template with every section |
 | `func-{vertex,fragment,light}`, `sky-func`, `fog-func` | Entry function stubs |
 | `uniform`, `uniform-{range,color,texture,filter}` | Uniform declarations |
@@ -353,6 +376,7 @@ void fragment() { …          // Quick Fix: add missing }
 | `godot-shader.completion.autoImport` | `true` | Complete symbols from other `.gdshaderinc` files and insert the `#include` |
 | `godot-shader.inlayHints.showParameterNames` | `true` | Show inline parameter name hints |
 | `godot-shader.colorPicker.enabled` | `true` | Show the color picker for color literals |
+| `godot-shader.trace.includeResolution` | `false` | Log `#include` resolution to the output panel |
 
 ---
 
@@ -373,6 +397,8 @@ void fragment() { …          // Quick Fix: add missing }
 - **Renaming a shared include symbol rewrites the include file**, so other shaders that include it are
   affected too — that is how `#include` works, not something the extension can scope down.
 - **`#if 0` dimming is block-level**: a nested `#endif` inside a disabled block ends the dimming early.
+- **Call hierarchy is scoped to the current include graph** — it does not scan every `.gdshader`
+  in the workspace, so callers in unrelated files are not listed.
 - **Color picker** understands `vec3(r, g, b)`, `vec4(r, g, b, a)` and `#RRGGBB` / `#RRGGBBAA`
   literals only — not `vec4(vec3, a)` or single-value `vec3(x)`.
 - **No shader preview or compilation.** Godot stays the source of truth for rendering.
@@ -397,6 +423,12 @@ Type the prefix and press `Tab`; make sure *Editor › Suggest: Snippets* is ena
 
 **My braces moved to a new line.**
 That is `godot-shader.formatting.braceNewLine` (or your `files.eol` / editor settings).
+
+**Nothing happens when I type `}` or `;`.**
+On-type formatting follows the `editor.formatOnType` setting — enable it (or run *Format Document*).
+
+**Can I apply all quick fixes at once?**
+Yes: *Source Action… → Fix All*, or add `"editor.codeActionsOnSave": { "source.fixAll": "explicit" }`.
 
 **How do I switch the UI language?**
 `godot-shader.general.language`: `en` or `zh`. Diagnostics use the same language.

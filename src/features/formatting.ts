@@ -343,6 +343,11 @@ export class GodotShaderFormatter implements
         return /[,\+\-\*\/\(=\?\:]$/.test(text) || /&&\s*$/.test(text) || /\|\|\s*$/.test(text);
     }
     
+    // 供 on-type 格式化复用：格式化单行文本（保留行尾注释）
+    public formatSingleLine(text: string): string {
+        return this.formatLine(text.trim());
+    }
+
     // 格式化单行 - 保留注释
     private formatLine(line: string): string {
         // 处理内联注释：分离代码和注释部分

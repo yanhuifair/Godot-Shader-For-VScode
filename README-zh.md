@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.111-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.112-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -26,7 +26,7 @@ Godot 4 着色器的完整语言支持 —— **20 个语言能力（Provider）
 **仓库地址：** <https://github.com/yanhuifair/Godot-Shader-For-VScode>
 **插件市场：** <https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode>
 
-[功能亮点](#功能亮点) · [安装](#安装) · [补全](#补全) · [跨文件支持](#跨文件支持) · [悬停](#悬停) · [签名帮助](#签名帮助) · [内联提示](#内联提示) · [CodeLens](#codelens) · [诊断](#诊断) · [格式化](#格式化) · [导航](#导航) · [命令](#命令) · [视觉特性](#视觉特性) · [快速修复](#快速修复) · [代码片段](#代码片段) · [配置项](#配置项) · [环境要求](#环境要求) · [已知限制](#已知限制) · [常见问题](#常见问题) · [开发](#开发)
+[功能亮点](#功能亮点) · [安装](#安装) · [补全](#补全) · [跨文件支持](#跨文件支持) · [悬停](#悬停) · [签名帮助](#签名帮助) · [内联提示](#内联提示) · [CodeLens](#codelens) · [诊断](#诊断) · [格式化](#格式化) · [导航](#导航) · [调用层次](#调用层次) · [命令](#命令) · [视觉特性](#视觉特性) · [快速修复](#快速修复) · [代码片段](#代码片段) · [配置项](#配置项) · [环境要求](#环境要求) · [已知限制](#已知限制) · [常见问题](#常见问题) · [开发](#开发)
 
 ---
 
@@ -40,6 +40,8 @@ Godot 4 着色器的完整语言支持 —— **20 个语言能力（Provider）
   `#include`。
 - **命令化操作** —— 展开 include 只读预览、切换 `shader_type`、插入模板、重建符号缓存
   （命令面板 / 右键菜单 / `Ctrl+Alt+E`）。
+- **编辑体验** —— on-type 格式化（自动对齐 `}`、规范化 `;`）、一键 Fix All，
+  以及跨 include 的函数调用层次。
 - **注释/字符串感知的诊断** —— 23 条规则，绝不会因为注释、字符串或 `#if 0` 块里的文字而报错。
 - **真正的格式化** —— switch/case 缩进、运算符空格、大括号风格、CRLF 保持。
 - **其它** —— 语义高亮、折叠、取色器、快速修复、CodeLens、代码片段、中英双语 UI。
@@ -240,6 +242,9 @@ void fragment() {               void fragment()
 
 预处理指令始终顶格；`case`/`default` 标签与三元运算符 `? :` 的空格也会被规范化。
 
+**On-type 格式化** —— 开启 `editor.formatOnType` 后边输入边整理：
+`}` 会对齐到匹配的 `{` 的缩进，`;` 会规范化所在行。
+
 ### 导航
 
 | 动作 | 快捷键 | 说明 |
@@ -250,10 +255,23 @@ void fragment() {               void fragment()
 | 工作区符号 | `Ctrl+T` | 跨所有 `.gdshader` **与** `.gdshaderinc` 搜索 |
 | 文档链接 | `Ctrl+点击` | `#include "common.gdshaderinc"` → 打开文件 |
 | 选择范围 | `Alt+Shift+→` | `单词` → `行` → `{ 块 }` → `void f() {…}` → 全文 |
+| 调用层次 | `Shift+Alt+H` | 谁调用了当前函数、它又调用了谁（搜索当前 include 图） |
 | 大纲 | 侧栏 | struct（含字段）、uniform、varying、函数 |
 
 其它快捷键：`Ctrl+Space` 触发补全 · `Shift+Alt+F` 格式化文档 · `Ctrl+.` 快速修复 ·
 `Alt+Shift+→` 扩展选区。
+
+### 调用层次
+
+把光标放在函数上按 `Shift+Alt+H`（或右键 → *Show Call Hierarchy*）。
+「被谁调用」会在当前文件**以及它 include 的所有文件**里搜索，
+因此声明在 `.gdshaderinc` 里的辅助函数两侧都能看到。
+
+```glsl
+float ripple(vec2 p) { … }            // ← 被调用 2 次
+float wave(vec2 uv) { return ripple(uv) * 2.0; }   // 调用 ripple
+void fragment() { COLOR = vec4(wave(UV)); }        // 调用 wave
+```
 
 ### 命令
 
@@ -309,6 +327,9 @@ void fragment() { …          // 快速修复：补上缺少的 }
 }                             // 快速修复：删除多余的 }
 ```
 
+所有可自动修复的诊断也可以一次修完：**Source Action… → Fix All**，或设置
+`"editor.codeActionsOnSave": { "source.fixAll": "explicit" }`。
+
 ### 代码片段
 
 共 65 个，按前缀分组（输入前缀后按 `Tab`）：
@@ -316,6 +337,9 @@ void fragment() { …          // 快速修复：补上缺少的 }
 | 前缀 | 插入内容 |
 |------|----------|
 | `shader-{canvas,spatial,sky,fog,particles}` | 最简着色器模板 |
+
+所有可自动修复的诊断也可以一次修完：**Source Action… → Fix All**，或设置
+`"editor.codeActionsOnSave": { "source.fixAll": "explicit" }`。
 | `shader-{canvas,spatial}-full` | 含全部段落的模板 |
 | `func-{vertex,fragment,light}`、`sky-func`、`fog-func` | 入口函数骨架 |
 | `uniform`、`uniform-{range,color,texture,filter}` | uniform 声明 |
@@ -346,6 +370,7 @@ void fragment() { …          // 快速修复：补上缺少的 }
 | `godot-shader.completion.autoImport` | `true` | 补全其它 `.gdshaderinc` 里的符号并自动插入 `#include` |
 | `godot-shader.inlayHints.showParameterNames` | `true` | 是否显示参数名内联提示 |
 | `godot-shader.colorPicker.enabled` | `true` | 是否为颜色字面量显示取色器 |
+| `godot-shader.trace.includeResolution` | `false` | 在输出面板打印 `#include` 解析过程 |
 
 ---
 
@@ -365,6 +390,8 @@ void fragment() { …          // 快速修复：补上缺少的 }
 - **重命名共享 include 里的符号会改写该文件**，因此其它 include 它的着色器同样受影响 —— 这是
   `#include` 的语义，插件无法只改一处。
 - **`#if 0` 变灰是块级的**：若禁用块内部还有嵌套 `#endif`，变灰会提前结束。
+- **调用层次只搜当前 include 图**：不会扫描工作区所有 `.gdshader`，
+  无关文件里的调用不会列出。
 - **取色器**只识别 `vec3(r, g, b)`、`vec4(r, g, b, a)` 与 `#RRGGBB` / `#RRGGBBAA` 字面量，
   不识别 `vec4(vec3, a)` 或单值 `vec3(x)`。
 - **不做着色器预览/编译**，渲染以 Godot 为准。
@@ -389,6 +416,12 @@ void fragment() { …          // 快速修复：补上缺少的 }
 
 **格式化把我大括号挪位置了。**
 由 `godot-shader.formatting.braceNewLine` 控制（默认同行）。
+
+**输入 `}` 或 `;` 没有自动整理。**
+on-type 格式化跟随 `editor.formatOnType` 设置，开启即可（或直接按格式化文档）。
+
+**能一次性应用所有快速修复吗？**
+可以：*Source Action… → Fix All*，或加 `"editor.codeActionsOnSave": { "source.fixAll": "explicit" }`。
 
 **怎么切换界面语言？**
 `godot-shader.general.language`：`en` 或 `zh`，诊断信息跟随同一语言。

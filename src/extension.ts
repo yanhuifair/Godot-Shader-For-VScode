@@ -21,8 +21,10 @@ import { GodotShaderInlayHintsProvider } from './features/inlay-hints';
 import { GodotShaderCodeLensProvider } from './features/code-lens';
 import { GodotShaderDocumentLinkProvider } from './features/document-links';
 import { GodotShaderSelectionRangeProvider } from './features/selection-range';
+import { GodotShaderOnTypeFormattingProvider } from './features/on-type-formatting';
+import { GodotShaderCallHierarchyProvider } from './features/call-hierarchy';
 import { t } from './i18n';
-import { invalidateIncludeCache } from './include-graph';
+import { invalidateIncludeCache, setIncludeLogger } from './include-graph';
 import { invalidateWorkspaceIncludes } from './workspace-includes';
 import { registerCommands, COMMANDS } from './commands';
 import { ExpandedShaderProvider, EXPANDED_SCHEME } from './features/expanded-preview';
@@ -34,6 +36,13 @@ export function activate(context: vscode.ExtensionContext) {
     const outputChannel = vscode.window.createOutputChannel('Godot Shader');
     context.subscriptions.push(outputChannel);
     outputChannel.appendLine(`Godot Shader activated — ${new Date().toLocaleString()}`);
+
+    // include 解析日志（默认关闭，见 godot-shader.trace.includeResolution）
+    setIncludeLogger((message) => {
+        if (vscode.workspace.getConfiguration('godot-shader').get<boolean>('trace.includeResolution', false)) {
+            outputChannel.appendLine(message);
+        }
+    });
 
     // 状态栏（点击可打开输出面板）
     const statusBarItem = vscode.window.createStatusBarItem(
@@ -90,6 +99,9 @@ export function activate(context: vscode.ExtensionContext) {
     const formatter = new GodotShaderFormatter();
     push(vscode.languages.registerDocumentFormattingEditProvider(LANG, formatter));
     push(vscode.languages.registerDocumentRangeFormattingEditProvider(LANG, formatter));
+    // 输入 } / ; 时即时整理（需开启 editor.formatOnType）
+    push(vscode.languages.registerOnTypeFormattingEditProvider(LANG,
+        new GodotShaderOnTypeFormattingProvider(formatter), '}', ';'));
 
     // 诊断
     const diagnosticProvider = new GodotShaderDiagnosticProvider();
@@ -103,7 +115,7 @@ export function activate(context: vscode.ExtensionContext) {
     // 快速修复
     push(vscode.languages.registerCodeActionsProvider(LANG,
         new GodotShaderCodeActionProvider(),
-        { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix] }));
+        { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.SourceFixAll] }));
 
     // 代码折叠
     push(vscode.languages.registerFoldingRangeProvider(LANG, new GodotShaderFoldingRangeProvider()));
@@ -159,6 +171,9 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Selection Range — 智能选区逐级扩展（Alt+Shift+→）
     push(vscode.languages.registerSelectionRangeProvider(LANG, new GodotShaderSelectionRangeProvider()));
+
+    // 调用层次（谁调用了我 / 我调用了谁）
+    push(vscode.languages.registerCallHierarchyProvider(LANG, new GodotShaderCallHierarchyProvider()));
 
     // 只读预览：展开 #include 后的完整着色器（虚拟文档，不落盘）
     const expandedProvider = new ExpandedShaderProvider();

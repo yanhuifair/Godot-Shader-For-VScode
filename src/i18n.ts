@@ -58,6 +58,8 @@ zh['fix.add_shader_type'] = '添加 shader_type canvas_item;';
 en['fix.add_shader_type'] = 'Add shader_type canvas_item;';
 zh['fix.add_brace'] = '补全缺少的反大括号 }';
 en['fix.add_brace'] = 'Add missing closing brace }';
+zh['fix.fix_all'] = '修复所有可自动修复的问题（{0} 处）';
+en['fix.fix_all'] = 'Fix all auto-fixable problems ({0})';
 zh['fix.remove_brace'] = '删除多余的反大括号 }';
 en['fix.remove_brace'] = 'Remove unexpected closing brace }';
 

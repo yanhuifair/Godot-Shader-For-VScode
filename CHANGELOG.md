@@ -4,6 +4,26 @@ All notable changes to **Godot Shader for VS Code** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.112] — 2026-10-21
+
+### Added
+
+- **On-type formatting** — with `editor.formatOnType` enabled, typing `}` aligns it with its opening
+  brace and typing `;` normalizes the line it closes.
+- **Call hierarchy** (`Shift+Alt+H`) — incoming calls are searched in the current file and every file
+  it includes, outgoing calls resolve helper functions declared in `.gdshaderinc`.
+- **Fix All** — all auto-fixable diagnostics (missing `;`, `shader_type`, stray/missing braces) can be
+  applied at once via `Source Action… → Fix All` or `editor.codeActionsOnSave: {"source.fixAll": …}`.
+- **`#include` tracing** — `godot-shader.trace.includeResolution` logs resolution results to the
+  output panel.
+- Multi-root workspaces: `res://` includes now resolve against the folder that actually contains the
+  file.
+
+### Fixed
+
+- Files without a `shader_type` no longer produce bogus "read-only" errors for output variables such
+  as `COLOR` — the read-only check now requires a known shader type.
+
 ## [1.0.111] — 2026-10-21
 
 ### Added
