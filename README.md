@@ -1,11 +1,11 @@
 <!-- Copyright (c) 2026 Fair -->
 <!-- SPDX-License-Identifier: AGPL-3.0 -->
-<!-- markdownlint-disable MD033 MD041 -->
+<!-- markdownlint-disable MD033 MD041 MD013 -->
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.109-2ea44f)
-![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
+![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.0.110-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -20,70 +20,95 @@
 
 > 🌐 [简体中文](./README-zh.md)
 
-The best Godot Shader development extension — 20 providers, 160+ built-ins, 74 functions, 65 snippets, fully bilingual (zh/en).
+Full language support for Godot 4 shaders — **20 language providers**, **162 built-in symbols**,
+**121 functions**, **65 snippets**, **23 diagnostic rules**, **cross-file resolution** through
+`#include`, fully bilingual (zh / en).
 
-**GitHub Repository:** [https://github.com/yanhuifair/Godot-Shader-For-VScode](https://github.com/yanhuifair/Godot-Shader-For-VScode)
+**Repository:** <https://github.com/yanhuifair/Godot-Shader-For-VScode>
+**Marketplace:** <https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode>
+
+[Highlights](#highlights) · [Install](#install) · [Completion](#completion) · [Cross-file](#cross-file-support) · [Hover](#hover) · [Signature help](#signature-help) · [Inlay hints](#inlay-hints) · [CodeLens](#codelens) · [Diagnostics](#diagnostics) · [Formatting](#formatting) · [Navigation](#navigation) · [Visual](#visual-features) · [Quick fixes](#quick-fixes) · [Snippets](#snippets) · [Configuration](#configuration) · [Requirements](#requirements) · [Limitations](#known-limitations) · [FAQ](#faq) · [Development](#development)
+
+---
+
+## Highlights
+
+- **Your own symbols are first-class** — completion, hover, signature help, go-to-definition,
+  references and rename understand uniforms, functions, structs and locals you declare, not just
+  the built-ins.
+- **Cross-file by default** — symbols from `#include`d `.gdshaderinc` files (including transitive
+  includes) resolve everywhere; renames also fix the declaration inside the included file.
+- **Comment- and string-aware diagnostics** — 23 rules that never fire on text inside comments,
+  strings or `#if 0` blocks.
+- **Real formatting** — switch/case indentation, operator spacing, brace style, CRLF preservation.
+- **Everything else** — semantic highlighting, folding, color picker, quick fixes, code lens,
+  snippets, bilingual UI.
+
+Nothing here requires Godot to be running: the extension is pure static analysis.
 
 ---
 
 ## Install
 
-[![Marketplace](https://img.shields.io/visual-studio-marketplace/v/fairyan.godot-shader-for-vscode?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
+### From the Marketplace (recommended)
 
-### Method 1: VS Code Marketplace (Recommended)
+1. Open VS Code → **Extensions** (`Ctrl+Shift+X`)
+2. Search **Godot Shader for VS Code** → **Install**
+3. Or open the [marketplace page](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode) directly
 
-1. Visit [VS Code Marketplace](https://marketplace.visualstudio.com/) and search for **Godot Shader for VS Code** or open directly: [https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
-2. Or open VS Code, click the **Extensions** icon in the Activity Bar (or press `Ctrl+Shift+X`), then search for **Godot Shader for VS Code**
-3. Click **Install**
-
-### Method 2: Build from Source
+### From source
 
 ```bash
 git clone https://github.com/yanhuifair/Godot-Shader-For-VScode.git
 cd Godot-Shader-For-VScode
 npm install
-npx vsce package
+npm run package          # builds godot-shader-for-vscode-<version>.vsix
 ```
 
-Then in VS Code: `Ctrl+Shift+P` → **Extensions: Install from VSIX...** → select the generated `.vsix` file.
+Then `Ctrl+Shift+P` → **Extensions: Install from VSIX…** → pick the generated `.vsix`.
 
-> After installation, `.gdshader` and `.gdshaderinc` files are automatically activated — no extra configuration needed.
+> `.gdshader` and `.gdshaderinc` are picked up automatically — no configuration required.
+> Open any shader and the status bar shows its `shader_type`; if it stays empty, the file was not
+> recognized as `godot-shader` (see [FAQ](#faq)).
 
 ---
 
 ## Features
 
-### Code Intelligence
+### Completion
 
-#### Context-aware Completion — `shader_type`, `render_mode`, `stencil_mode`, `uniform` types, `void` functions, hints, `#include` paths — all filtered by current shader type.
+Context-aware and filtered by the current `shader_type`.
 
 ```glsl
 shader_type spatial;                    // ← spatial / canvas_item / sky / fog / particles (+ auto `;`)
-render_mode blend_mix, cull_disabled;   // ← auto-completes valid modes for spatial
-uniform float strength : hint_range(    // ← hint completions (source_color, filter_linear, …)
+render_mode blend_mix, cull_disabled;   // ← only modes valid for spatial
+uniform float strength : hint_range(    // ← hints (source_color, filter_linear, …)
 #                                       // ← preprocessor: #ifdef, #include, #define, …
-#include "                              // ← workspace .gdshaderinc path completions
-COLOR.                                  // ← swizzle completions (x y z w r g b a s t p q)
-main_light.                             // ← struct field completions
+#include "                              // ← workspace .gdshaderinc paths
+COLOR.                                  // ← swizzles (x y z w r g b a s t p q)
+main_light.                             // ← struct fields
 group_uniforms Base;                    // ← existing inspector group names
 my_uniform                              // ← your own uniforms / functions / structs / locals
 ```
 
-The completion list also contains **every symbol declared in the current file**: uniforms, varyings,
-constants, structs, functions (inserted with their parameters) and the locals/parameters of the
-function you are typing in.
+The list also contains **every symbol declared in the file**: uniforms, varyings, constants,
+structs, functions (inserted with parameter placeholders) and the locals/parameters of the function
+you are typing in — followed by the symbols coming from `#include`d files, tagged with their source.
 
-#### Cross-file Support (`#include`)
+### Cross-file Support
 
 Symbols declared in `.gdshaderinc` files — including transitive includes — are resolved across the
-whole include graph. Completion, hover (which also names the source file), signature help,
-go-to-definition, find-references and rename all work through `#include`; include cycles are
-detected and missing includes are reported as warnings.
+whole include graph. Completion, hover (naming the source file), signature help, go-to-definition,
+find-references and rename all work through `#include`. Include cycles are detected, and missing
+includes are reported as warnings.
 
 ```glsl
 // common.gdshaderinc
 uniform vec4 shared_tint : source_color;
-float ripple_at(vec2 p, float freq) { … }
+
+float ripple_at(vec2 p, float freq) {
+    return sin(length(p - vec2(0.5)) * freq);
+}
 ```
 
 ```glsl
@@ -91,13 +116,17 @@ float ripple_at(vec2 p, float freq) { … }
 #include "common.gdshaderinc"
 
 void fragment() {
-    COLOR = shared_tint * ripple_at(UV, 10.0);  // both come from the include
+    COLOR = shared_tint * ripple_at(UV, 10.0);   // both symbols come from the include
 }
 ```
 
-#### Hover Documentation
+Both `res://shaders/common.gdshaderinc` and `./common.gdshaderinc` forms are supported
+(`res://` is resolved against the workspace root).
 
-Type, description, available shader types, return value ranges, usage examples — plus your own functions and uniforms.
+### Hover
+
+Type, description, available shader types, return ranges and usage examples — plus everything you
+declared yourself.
 
 ```glsl
 sin(                                  // hover → Signature: sin(float x)
@@ -107,77 +136,82 @@ tint_sample(uv, amt)                  // hover → your signature, parameters an
 tint                                  // hover → uniform vec4 tint | Hint: source_color | Editable in the Inspector
 LightData                             // hover → struct fields and where it is used
 main_light.direction                  // hover → field type
+group_uniforms                        // hover → keyword documentation
 ```
 
-#### Signature Help
+### Signature Help
 
-Parameter hints for all built-in functions (overloads picked by argument count) and for functions you define.
+Parameter hints for built-ins (overloads selected by argument count) and for functions you define —
+including functions that live in an included file and calls spread over several lines.
 
 ```glsl
 mix(█                                 // mix(vecX a, vecX b, float|vecX t)
-clamp(█                               // clamp(vecX x, vecX|float min, vecX|float max)
 vec3(0.5, 0.5, █                      // vec3(float, float, float) — overload resolved automatically
 tint_sample(uv, █                     // vec4 tint_sample(vec2 uv, float amt)
 ```
 
-#### Inlay Hints
+### Inlay Hints
 
-Parameter names inline, including user-defined functions and multi-line calls. Configurable on/off.
+Parameter names inline, for built-ins, your own functions and multi-line calls. Can be turned off.
 
 ```glsl
-mix(x: color1, y: color2, t: 0.5)    // built-in functions
-my_func(n: 10, flag: true)            // user-defined functions
+mix(x: color1, y: color2, t: 0.5)
+my_func(n: 10, flag: true)
 ```
 
-#### CodeLens
+### CodeLens
 
-Reference counts.
+Reference counts above every `uniform` / `varying` / `const` (comments and strings are not counted).
 
 ```glsl
 uniform float strength;               // 3 references
-void fragment() { … }                 // 1 reference
 ```
 
 ### Diagnostics
 
-**20+ Rules** — Smart filtering skips comments and strings.
+**23 rules**, all comment/string aware.
 
 ```glsl
 shader_type spatial;                  // ✅ valid
 shader_type unknown;                  // ❌ Invalid shader_type: unknown
-
 render_mode invalid_mode;             // ❌ 'invalid_mode' is invalid for spatial
-
 uniform int value;                    // ❌ Invalid type 'int' (uniforms can't be int)
-
 // { " }                               // ✅ braces in comments/strings ignored
 #include "missing.gdshaderinc"        // ⚠️ Included file not found
 ```
 
 | Rule | Example |
 |------|---------|
-| `shader_type` validation | `shader_type unknown;` -> error |
-| `shader_type` position | Statement before `shader_type` -> warning |
-| Brace matching | `void f() {` without `}` -> missing closing brace |
-| Semicolon | `COLOR = vec3(1.0)` -> missing `;` (multi-line expressions understood) |
-| `#include` target | File not found -> warning |
-| render_mode | `render_mode bad_mode;` -> invalid for current type |
-| Reserved words | `void main() {}` -> `main` is reserved |
-| Built-in scope | `EYEDIR` in spatial -> not available |
-| Read-only built-ins | Writing `LIGHT` in fragment -> error |
-| Duplicate declarations | Two `uniform float x;` -> duplicate |
-| const init | `const float x;` -> must be initialized |
-| Control flow | `break` outside loop/switch -> error |
-| stencil_mode | `stencil_mode read;` without alpha -> warning |
-| Number format | `1.5.5` -> invalid number |
-| Function availability | `void sky()` in spatial -> error |
-| Unused variables | `uniform float x;` never used -> hint |
-| Performance (strict mode) | `discard` in fragment -> info |
-| Texture in loop (strict) | `for(…){ texture(…); }` -> warning |
+| `shader_type` value | `shader_type unknown;` → error |
+| `shader_type` position | Any statement before `shader_type` → warning |
+| Brace matching | `void f() {` without `}` → missing closing brace / extra `}` → warning |
+| Semicolon | `COLOR = vec3(1.0)` → missing `;` (multi-line expressions understood) |
+| `#include` target | File not found → warning |
+| `render_mode` | `render_mode bad_mode;` → invalid for the current type |
+| `stencil_mode` | `stencil_mode read;` without alpha → warning |
+| Declaration types | `uniform int value;` → invalid type for uniforms |
+| Declaration syntax | `uniform vec3 broken_type my_var;` → extra identifier |
+| Uniform hints | `: not_a_hint` → invalid hint / flag |
+| `const` init | `const float x;` → must be initialized |
+| `varying` type | `varying sampler2D x;` → invalid varying type |
+| Duplicate declarations | Two `uniform float x;` → duplicate |
+| Reserved words | `void main() {}` → `main` is reserved |
+| Built-in scope | `EYEDIR` in spatial → not available |
+| Read-only inputs | Writing an input where it is read-only, e.g. `ALBEDO` in `light()` → error |
+| Built-in function availability | `void sky()` in spatial → error |
+| Control flow | `break` outside loop/switch → error; `discard` outside fragment/light → error |
+| Number format | `1.5.5` → invalid number |
+| Type mismatch | `uint u = VERTEX_ID;` (int → uint) → error |
+| Invalid constructors | `vec2(vec3(1.0))` → cannot truncate |
+| Deprecated functions | `atan2(x, y)` → use `atan(y, x)` |
+| Unused declarations | `uniform float x;` never used → hint (also checks included files) |
+| Unused locals | `float tmp = 1.0;` never used → warning |
+| Performance (strict mode) | `discard` in fragment → info; `texture()` inside a loop → warning |
 
 ### Formatting
 
-**Full document & range formatting** with switch/case, operator spacing, block-comment protection.
+Full-document and range formatting with switch/case, operator spacing and block-comment protection.
+Line endings are preserved (CRLF stays CRLF).
 
 ```glsl
 // Before
@@ -189,130 +223,100 @@ void fragment() {
 }
 ```
 
-**Configurable brace style** — same-line (default) or new-line.
+Configurable brace style — `"godot-shader.formatting.braceNewLine": false` keeps the brace on the
+same line (default), `true` puts it on its own line:
 
 ```glsl
-// "godot-shader.formatting.braceNewLine": false (default)
-void fragment() {
-    // …
-}
-
-// "godot-shader.formatting.braceNewLine": true
-void fragment()
-{
-    // …
-}
+// false (default)              // true
+void fragment() {               void fragment()
+    COLOR = vec4(1.0);          {
+}                                   COLOR = vec4(1.0);
+                                }
 ```
 
-**Preprocessor directives** always at column 0:
-
-```glsl
-// Always stays at column 0 regardless of nesting
-#ifdef DEBUG
-#define MAX_ITER 32
-#endif
-```
+Preprocessor directives always stay at column 0, and `case`/`default` labels plus ternary
+`? :` spacing are normalized.
 
 ### Navigation
 
-| Action | Shortcut | Example |
-|--------|----------|---------|
-| Go to Definition | `F12` | `uniform float x` → jumps to declaration (also into `.gdshaderinc`); calls → definitions; locals → the nearest declaration; params → the parameter list |
-| Find References | `Shift+F12` | Shows all usages of a symbol (locals are scoped to their function, `#include` symbols are searched across files) |
-| Rename | `F2` | Rename all occurrences at once, including the declaration inside the included file |
-| Workspace Symbols | `Ctrl+T` | Search uniforms/functions across all `.gdshader` files |
-| Document Links | Ctrl+Click | `#include "common.gdshaderinc"` → opens the file |
-| Selection Range | `Alt+Shift+→` | `word` → `line` → `{ block }` → `void f() {…}` → full doc |
-| Outline | Sidebar | Shows structs (with fields), uniforms, varyings and functions in tree view |
+| Action | Shortcut | What it does |
+|--------|----------|--------------|
+| Go to Definition | `F12` | Declaration of a variable/function/struct — also inside `.gdshaderinc`; parameters jump to the parameter list |
+| Find References | `Shift+F12` | All usages; locals are scoped to their function, `#include` symbols are searched across files |
+| Rename | `F2` | Renames every occurrence, including the declaration inside the included file |
+| Workspace Symbols | `Ctrl+T` | Uniforms/varyings/functions across all `.gdshader` **and** `.gdshaderinc` files |
+| Document Links | `Ctrl+Click` | `#include "common.gdshaderinc"` → opens the file |
+| Selection Range | `Alt+Shift+→` | `word` → `line` → `{ block }` → `void f() {…}` → full document |
+| Outline | Sidebar | Structs (with fields), uniforms, varyings, functions |
 
-### Visual
+Other shortcuts: `Ctrl+Space` completion · `Shift+Alt+F` format document · `Ctrl+.` quick fix ·
+`Alt+Shift+→` expand selection.
 
-**Semantic Highlighting** — each token type gets a distinct color:
+### Visual Features
+
+**Semantic highlighting** — every token class gets its own color:
 
 ```glsl
-uniform float strength;     // keyword  | type  | variable-name
+uniform float strength;     // keyword  | type  | variable name
 COLOR = vec3(1.0, 0.5, 0.2); // built-in | type | number | number | number
-void fragment() { … }       // keyword  | function-name
+void fragment() { … }       // keyword  | function name
 ```
 
-**`#if 0` Block Dimming** — disabled code visually faded:
+**`#if 0` dimming** — disabled blocks are scoped as comments, so they fade out:
 
 ```glsl
 #if 0
-// Everything here appears dimmed
+// Everything here is dimmed
 vec3 disabled_color = vec3(1.0, 0.0, 0.0);
-float disabled_value = 1.0;
 #endif
 ```
 
-**Folding** — function/struct bodies, consecutive `//` comment blocks, multi-line `/* */` blocks and `#if… #endif` regions.
+**Folding** — function/struct bodies, consecutive `//` blocks, multi-line `/* */` and `#if… #endif`.
 
-**Color Picker** — click color values:
+**Color picker** — click a literal color:
 
 ```glsl
-vec3 sky = vec3(0.3, 0.5, 1.0);     // click the vec3 → color picker
+vec3 sky = vec3(0.3, 0.5, 1.0);      // click the vec3 → color picker
 vec4 col = vec4(1.0, 0.5, 0.2, 1.0); // click the vec4 → color picker
 #define BG_COLOR #478cbf             // click the hex → color picker
 ```
 
-**Status Bar** — shows current shader type at bottom right.
+**Status bar** — shows the `shader_type` of the current file.
 
-### Quick Fixes (`Ctrl+.`)
+### Quick Fixes
+
+`Ctrl+.` on a diagnostic:
 
 ```glsl
-// Before: missing semicolon
-vec3 col = vec3(1.0)
-// Quick Fix: Add ;
-
-// Before: no shader_type
-render_mode unshaded;
-// Quick Fix: Add shader_type canvas_item;
-
-// Before: missing closing brace
-void fragment() {
-    COLOR = vec3(1.0);
-// Quick Fix: Add }
-
-// Before: one closing brace too many
-void fragment() {
-    COLOR = vec3(1.0);
-}
-}
-// Quick Fix: Remove }
+vec3 col = vec3(1.0)          // Quick Fix: add ;
+render_mode unshaded;         // Quick Fix: add shader_type canvas_item;
+void fragment() { …          // Quick Fix: add missing }
+}                             // Quick Fix: remove stray }
 ```
 
----
+### Snippets
 
-## Usage
+65 snippets, grouped by prefix (type the prefix, press `Tab`):
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Space` | Trigger completion |
-| `Shift+Alt+F` | Format document |
-| `F12` | Go to definition |
-| `Shift+F12` | Find references |
-| `F2` | Rename symbol |
-| `Ctrl+T` | Workspace symbols |
-| `Ctrl+.` | Quick fix |
-| `Alt+Shift+→` | Expand selection |
-
-<details>
-<summary><b>Snippets</b> (65 total)</summary>
-
-| Prefix | Output |
-|--------|--------|
-| `shader-{canvas,spatial,sky,fog,particles}` | Full shader templates |
-| `shader-{canvas,spatial}-full` | Templates with all sections |
-| `func-{vertex,fragment,light}` `sky-func` `fog-func` | Function stubs |
-| `uniform` `uniform-{range,color,texture,filter}` | Uniform declarations |
-| `varying` | Varying declaration |
-| `if` `ifelse` `for` `switch` | Control flow |
-| `set-{color,albedo,metallic,roughness,emission}` | Output assignments |
+| Prefix | Inserts |
+|--------|---------|
+| `shader-{canvas,spatial,sky,fog,particles}` | Minimal shader template |
+| `shader-{canvas,spatial}-full` | Template with every section |
+| `func-{vertex,fragment,light}`, `sky-func`, `fog-func` | Entry function stubs |
+| `uniform`, `uniform-{range,color,texture,filter}` | Uniform declarations |
+| `varying`, `struct` | varying / struct block |
+| `if`, `ifelse`, `for`, `while` | Control flow |
 | `ctor-{vec2,vec3,vec4,mat4}` | Constructors |
-| `math-{clamp,lerp,normalize}` | Math operations |
-| `sample-{texture,texturelod}` | Texture sampling |
-| `#ifdef` `#ifndef` `#include` | Preprocessor (auto-inserts `#endif`) |
-</details>
+| `sample-texture`, `sample-texturelod` | Texture sampling |
+| `builtin-{time,vertex,tangent,binormal,uv,uv2,screen-uv}` | Built-in variable references |
+| `set-{color,albedo,alpha,metallic,roughness,emission,normal-map,normal-depth}` | Output assignments |
+| `set-normal`, `builtin-*` | Built-in value references |
+| `alpha-scissor` | `ALPHA_SCISSOR_THRESHOLD` |
+| `anim-{vertex,uv}` | Vertex/UV animation |
+| `math-{lerp,clamp,smoothstep,normalize,dot,cross,length,distance}` | Math helpers |
+| `fresnel`, `hemi-light`, `phong` | Lighting snippets |
+| `comment`, `todo`, `fixme` | Comment blocks |
+| `ifdef`, `ifndef`, `define` | Preprocessor (inserts `#endif` too) |
 
 ---
 
@@ -320,49 +324,106 @@ void fragment() {
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `godot-shader.general.language` | `en` | UI language: `en` / `zh` |
+| `godot-shader.general.language` | `en` | UI language: `en` or `zh` |
 | `godot-shader.diagnostics.checkBuiltinScope` | `true` | Validate built-in variable scope per shader type |
-| `godot-shader.diagnostics.strictMode` | `false` | Extra warnings (discard perf, texture-in-loop) |
-| `godot-shader.formatting.braceNewLine` | `false` | Place `{` on new line |
-| `godot-shader.inlayHints.showParameterNames` | `true` | Show parameter name hints |
-| `godot-shader.colorPicker.enabled` | `true` | Show color picker for color values |
+| `godot-shader.diagnostics.strictMode` | `false` | Extra performance warnings (`discard`, `texture()` in loops) |
+| `godot-shader.formatting.braceNewLine` | `false` | Put `{` on its own line |
+| `godot-shader.inlayHints.showParameterNames` | `true` | Show inline parameter name hints |
+| `godot-shader.colorPicker.enabled` | `true` | Show the color picker for color literals |
 
 ---
 
-## Project Structure
+## Requirements
+
+- **VS Code 1.85** or newer
+- Godot **4.x** shader language (`shader_type`-style, `.gdshader` / `.gdshaderinc`)
+- No Godot installation, no build step, no background service — the extension is static analysis only
+
+---
+
+## Known Limitations
+
+- **Diagnostics are heuristic.** They use targeted parsing rather than a full GLSL compiler: fast and
+  comment-safe, but they can miss unusual constructs (and never block saving).
+- **`#include` is resolved textually.** Every `#include` line is followed; conditional compilation
+  (`#if`) is not evaluated when building the symbol graph.
+- **Renaming a shared include symbol rewrites the include file**, so other shaders that include it are
+  affected too — that is how `#include` works, not something the extension can scope down.
+- **`#if 0` dimming is block-level**: a nested `#endif` inside a disabled block ends the dimming early.
+- **Color picker** understands `vec3(r, g, b)`, `vec4(r, g, b, a)` and `#RRGGBB` / `#RRGGBBAA`
+  literals only — not `vec4(vec3, a)` or single-value `vec3(x)`.
+- **No shader preview or compilation.** Godot stays the source of truth for rendering.
+
+---
+
+## FAQ
+
+**Nothing highlights / the extension seems inactive.**
+It only activates for `.gdshader` and `.gdshaderinc`. Check the language indicator in the status bar;
+if needed use *Change Language Mode → Godot Shader*.
+
+**`#include` is reported as "file not found".**
+Open the Godot project folder (the one containing `project.godot`) as the workspace root so `res://`
+can be resolved, or use a path relative to the current file.
+
+**Renaming changed my `.gdshaderinc`.**
+Expected: the symbol is declared there. See [Known Limitations](#known-limitations).
+
+**Snippets do not expand.**
+Type the prefix and press `Tab`; make sure *Editor › Suggest: Snippets* is enabled.
+
+**My braces moved to a new line.**
+That is `godot-shader.formatting.braceNewLine` (or your `files.eol` / editor settings).
+
+**How do I switch the UI language?**
+`godot-shader.general.language`: `en` or `zh`. Diagnostics use the same language.
+
+---
+
+## Development
+
+```bash
+npm install
+npm run compile      # tsc → out/
+npm run package      # bump version + compile + build .vsix
+```
 
 ```text
 src/
-  extension.ts              # Entry point — registers all providers
-  shader-data.ts             # 160+ built-ins, 74 functions, types, keywords, render modes
-  i18n.ts                    # Bilingual translation (zh/en)
-  en-descriptions.ts         # 380+ English descriptions
-  utils.ts                   # Shared utilities
+  extension.ts            # activation, provider registration, status bar
+  shader-data.ts          # 162 built-ins, 121 functions, 23 types, 28 keywords, hints, render modes
+  symbol-index.ts         # per-document symbol index (uniforms/locals/functions/structs), version-cached
+  include-graph.ts        # #include graph → cross-file symbol table (cycle-safe)
+  i18n.ts                 # bilingual strings (zh / en)
+  en-descriptions.ts      # 345 English descriptions
+  utils.ts                # masking (comments/strings), declaration & scope parsing
   features/
-    completion.ts            # Context-aware completion + #include paths + preprocessor
-    hover.ts                 # Hover docs + examples + return values
-    diagnostics.ts           # 17 diagnostic rules
-    formatting.ts            # Document & range formatting + brace style
-    signature-help.ts        # Function parameter hints
-    code-actions.ts          # Quick fixes
-    folding.ts               # Code folding (brace + function detection)
-    semantic-tokens.ts       # Semantic highlighting + #if 0 dimming
-    definition.ts            # Go-to-definition + #include jump
-    references.ts            # Find all references
-    rename.ts                # Symbol rename
-    highlight.ts             # Document highlights
-    color-picker.ts          # vec3/vec4/hex color picker
-    workspace-symbols.ts     # Cross-file symbol search (cached)
-    symbol-provider.ts       # Outline & breadcrumbs
-    inlay-hints.ts           # Parameter name hints (built-in + user functions)
-    code-lens.ts             # Reference count code lens
-    document-links.ts        # #include clickable links
-    selection-range.ts       # Smart selection expansion
+    completion.ts         # context-aware completion, user symbols, swizzles, struct fields
+    hover.ts              # built-in + user + cross-file hover
+    diagnostics.ts        # 23 rules
+    formatting.ts         # document & range formatting
+    signature-help.ts     # built-in overloads + user & cross-file functions
+    code-actions.ts       # quick fixes (;, shader_type, braces)
+    folding.ts            # blocks, comment blocks, #if regions
+    semantic-tokens.ts    # semantic highlighting + #if 0 handling
+    definition.ts         # go-to-definition (local → include graph)
+    references.ts         # find references (scope & include aware)
+    rename.ts             # rename (scope & include aware)
+    highlight.ts          # occurrence highlight (read/write)
+    color-picker.ts       # vec3 / vec4 / hex literals
+    workspace-symbols.ts  # workspace-wide symbols (cached)
+    symbol-provider.ts    # outline & breadcrumbs
+    inlay-hints.ts        # parameter-name hints (multi-line aware)
+    code-lens.ts          # reference counts
+    document-links.ts     # clickable #include
+    selection-range.ts    # smart selection expansion
 syntaxes/
-  godot-shader.tmLanguage.json   # TextMate grammar
+  godot-shader.tmLanguage.json
 snippets/
-  godot-shader.json              # 65 code snippets
+  godot-shader.json
 ```
+
+Contributions are welcome — open an issue or a PR.
 
 ---
 
@@ -373,10 +434,10 @@ AGPL-3.0 © [Fair Yan](https://github.com/yanhuifair)
 ---
 
 ## Appreciate
+
 <div align="left">
   <img alt="Appreciate" src="images/appreciate.JPG" width="300" />
 </div>
-
 
 ## Star History
 
@@ -387,5 +448,3 @@ AGPL-3.0 © [Fair Yan](https://github.com/yanhuifair)
    <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=yanhuifair/Godot-Shader-For-VScode&type=date&legend=top-left" />
  </picture>
 </a>
-
-

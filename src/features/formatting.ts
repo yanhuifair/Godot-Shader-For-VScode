@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
+import { computeCodeOnlyLines } from '../utils';
 
 export class GodotShaderFormatter implements 
     vscode.DocumentFormattingEditProvider,
@@ -50,6 +51,8 @@ export class GodotShaderFormatter implements
         const indentChar = options.insertSpaces ? ' '.repeat(tabSize) : '\t';
         const braceNewLine = this.shouldBraceNewLine();
         const lines: string[] = [];
+        // 预处理：把行内 `{ … }` 拆成多行；braceNewLine=false 时把独立的 `{` 行并回上一行
+        const sourceLines = this.normalizeBraceLayout(document, braceNewLine);
         let indentLevel = 0;
         const caseLevels: number[] = [0];
         let inBlockComment = false;
@@ -58,9 +61,8 @@ export class GodotShaderFormatter implements
         // else 块的 body 消费后需额外回收其匹配 if 的一级缩进
         let elseConsumesExtra = false;
         
-        for (let i = 0; i < document.lineCount; i++) {
-            const line = document.lineAt(i);
-            const rawText = line.text;
+        for (let i = 0; i < sourceLines.length; i++) {
+            const rawText = sourceLines[i];
             const text = rawText.trim();
             
             // 跳过空行
@@ -252,6 +254,82 @@ export class GodotShaderFormatter implements
     // 读取大括号另起一行设置
     private shouldBraceNewLine(): boolean {
         return vscode.workspace.getConfiguration('godot-shader').get<boolean>('formatting.braceNewLine', false);
+    }
+
+    /**
+     * 大括号排版预处理：
+     * 1) 一行里出现 `{ … }`（同一行还有其它语句）→ 拆成多行，例如
+     *      void fragment(){COLOR=vec4(1.0);}  →  void fragment(){\n COLOR=vec4(1.0);\n}
+     * 2) braceNewLine=false 时，单独的 `{` 行并回上一行代码，保证"默认同行"真的生效
+     * 注释与字符串里的 {} 不参与（用 mask 后的列位置判断）。
+     */
+    private normalizeBraceLayout(document: vscode.TextDocument, braceNewLine: boolean): string[] {
+        const raw: string[] = [];
+        for (let i = 0; i < document.lineCount; i++) raw.push(document.lineAt(i).text);
+        const code = computeCodeOnlyLines(raw);
+
+        const expanded: string[] = [];
+        for (let i = 0; i < raw.length; i++) {
+            const line = raw[i];
+            const masked = code[i] ?? line;
+            const trimmed = line.trim();
+
+            // 预处理器、空行、纯注释行原样保留
+            if (!trimmed || trimmed.startsWith('#') || trimmed.startsWith('//') ||
+                trimmed.startsWith('*') || trimmed.startsWith('/*')) {
+                expanded.push(line);
+                continue;
+            }
+
+            // 计算需要断行的位置（行内下标）
+            const splitPoints = new Set<number>();
+            for (let c = 0; c < masked.length; c++) {
+                if (masked[c] === '{') {
+                    const rest = masked.slice(c + 1);
+                    // `{` 后面还有代码，且不是紧接 `}` 的空块 → 在 `{` 之后断行
+                    if (rest.trim() && !/^\s*\}/.test(rest)) splitPoints.add(c + 1);
+                } else if (masked[c] === '}') {
+                    const before = masked.slice(0, c);
+                    // `}` 前面还有代码，且不是紧随 `{` 的空块 → 在 `}` 之前断行
+                    if (before.trim() && !/\{\s*$/.test(before)) splitPoints.add(c);
+                }
+            }
+
+            if (splitPoints.size === 0) {
+                expanded.push(line);
+                continue;
+            }
+
+            let start = 0;
+            for (const p of [...splitPoints].sort((a, b) => a - b)) {
+                if (p > start) expanded.push(line.slice(start, p));
+                start = p;
+            }
+            if (start < line.length) expanded.push(line.slice(start));
+        }
+
+        if (braceNewLine) return expanded;
+
+        // 同行风格：把独立的 `{` 行并回上一行代码
+        const merged: string[] = [];
+        for (const seg of expanded) {
+            const t = seg.trim();
+            if (t === '{' && merged.length > 0) {
+                let prevIndex = merged.length - 1;
+                while (prevIndex >= 0 && merged[prevIndex].trim() === '') prevIndex--;
+                if (prevIndex >= 0) {
+                    const prevTrim = merged[prevIndex].trim();
+                    const prevIsCode = prevTrim && !prevTrim.startsWith('//') && !prevTrim.startsWith('#') &&
+                        !prevTrim.startsWith('*') && !prevTrim.startsWith('/*') && prevTrim !== '}';
+                    if (prevIsCode) {
+                        merged[prevIndex] = merged[prevIndex].trimEnd() + ' {';
+                        continue;
+                    }
+                }
+            }
+            merged.push(seg);
+        }
+        return merged;
     }
     
     // 判断是否为纯注释行

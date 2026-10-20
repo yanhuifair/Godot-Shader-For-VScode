@@ -1,11 +1,11 @@
 <!-- Copyright (c) 2026 Fair -->
 <!-- SPDX-License-Identifier: AGPL-3.0 -->
-<!-- markdownlint-disable MD033 MD041 -->
+<!-- markdownlint-disable MD033 MD041 MD013 -->
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.109-2ea44f)
-![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
+![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
+![Version](https://img.shields.io/badge/version-1.0.110-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -20,68 +20,88 @@
 
 > 🌐 [English](./README.md)
 
-最佳的 Godot Shader 开发插件 —— 20 个供应器，160+ 内置变量，74 个函数，65 个代码片段，完整中英双语。
+Godot 4 着色器的完整语言支持 —— **20 个语言能力（Provider）**、**162 个内置符号**、**121 个内置函数**、
+**65 个代码片段**、**23 条诊断规则**，支持 `#include` **跨文件解析**，中英双语。
 
-**GitHub 仓库:** [https://github.com/yanhuifair/Godot-Shader-For-VScode](https://github.com/yanhuifair/Godot-Shader-For-VScode)
+**仓库地址：** <https://github.com/yanhuifair/Godot-Shader-For-VScode>
+**插件市场：** <https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode>
+
+[功能亮点](#功能亮点) · [安装](#安装) · [补全](#补全) · [跨文件支持](#跨文件支持) · [悬停](#悬停) · [签名帮助](#签名帮助) · [内联提示](#内联提示) · [CodeLens](#codelens) · [诊断](#诊断) · [格式化](#格式化) · [导航](#导航) · [视觉特性](#视觉特性) · [快速修复](#快速修复) · [代码片段](#代码片段) · [配置项](#配置项) · [环境要求](#环境要求) · [已知限制](#已知限制) · [常见问题](#常见问题) · [开发](#开发)
+
+---
+
+## 功能亮点
+
+- **自己写的符号同样被完整支持** —— 补全、悬停、签名帮助、跳转定义、查找引用、重命名都认识你声明的
+  uniform、函数、struct 与局部变量，而不只是内置符号。
+- **默认跨文件** —— `.gdshaderinc`（含传递 include）里声明的符号在各处都能解析；重命名会连
+  include 文件里的声明一起改。
+- **注释/字符串感知的诊断** —— 23 条规则，绝不会因为注释、字符串或 `#if 0` 块里的文字而报错。
+- **真正的格式化** —— switch/case 缩进、运算符空格、大括号风格、CRLF 保持。
+- **其它** —— 语义高亮、折叠、取色器、快速修复、CodeLens、代码片段、中英双语 UI。
+
+全部功能都是静态分析，**不需要启动 Godot**。
 
 ---
 
 ## 安装
 
-[![Marketplace](https://img.shields.io/visual-studio-marketplace/v/fairyan.godot-shader-for-vscode?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
+### 从插件市场安装（推荐）
 
-### 方式一：VS Code 扩展商店（推荐）
+1. 打开 VS Code → **扩展**（`Ctrl+Shift+X`）
+2. 搜索 **Godot Shader for VS Code** → **安装**
+3. 或直接打开[插件市场页面](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
 
-1. 访问 [VS Code Marketplace](https://marketplace.visualstudio.com/)，搜索 **Godot Shader for VS Code**，或直接打开：[https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
-2. 或在 VS Code 中，点击活动栏的**扩展**图标（或按 `Ctrl+Shift+X`），搜索 **Godot Shader for VS Code**
-3. 点击**安装**
-
-### 方式二：从源码构建
+### 从源码构建
 
 ```bash
 git clone https://github.com/yanhuifair/Godot-Shader-For-VScode.git
 cd Godot-Shader-For-VScode
 npm install
-npx vsce package
+npm run package          # 生成 godot-shader-for-vscode-<version>.vsix
 ```
 
-然后在 VS Code 中：`Ctrl+Shift+P` → **Extensions: Install from VSIX...** → 选择生成的 `.vsix` 文件。
+然后在 VS Code 中：`Ctrl+Shift+P` → **Extensions: Install from VSIX…** → 选择生成的 `.vsix`。
 
-> 安装后，`.gdshader` 和 `.gdshaderinc` 文件自动激活——无需额外配置。
+> `.gdshader` 与 `.gdshaderinc` 会自动激活，无需额外配置。
+> 打开任意着色器，状态栏会显示它的 `shader_type`；如果为空，说明文件没有被识别为 `godot-shader`
+> （见[常见问题](#常见问题)）。
 
 ---
 
 ## 功能
 
-### 代码智能
+### 补全
 
-#### 上下文感知补全 —— `shader_type`、`render_mode`、`stencil_mode`、`uniform` 类型、`void` 函数、hint、`#include` 路径——全部根据当前着色器类型过滤。
+结合上下文，并按当前 `shader_type` 过滤。
 
 ```glsl
-shader_type spatial;                    // ← spatial / canvas_item / sky / fog / particles（自动补分号）
-render_mode blend_mix, cull_disabled;   // ← 自动补全当前类型的有效模式
-uniform float strength : hint_range(    // ← hint 补全（source_color、filter_linear …）
+shader_type spatial;                    // ← spatial / canvas_item / sky / fog / particles（自动带分号）
+render_mode blend_mix, cull_disabled;   // ← 只列出 spatial 可用的模式
+uniform float strength : hint_range(    // ← hint（source_color、filter_linear …）
 #                                       // ← 预处理器：#ifdef、#include、#define …
-#include "                              // ← 工作区 .gdshaderinc 路径补全
-COLOR.                                  // ← 分量补全（x y z w r g b a s t p q）
-main_light.                             // ← struct 字段补全
-group_uniforms Base;                    // ← 已有检查组名补全
-my_uniform                              // ← 自己声明的 uniform / 函数 / struct / 局部变量
+#include "                              // ← 工作区 .gdshaderinc 路径
+COLOR.                                  // ← 分量（x y z w r g b a s t p q）
+main_light.                             // ← struct 字段
+group_uniforms Base;                    // ← 已有的检查组名
+my_uniform                              // ← 自己的 uniform / 函数 / struct / 局部变量
 ```
 
-补全列表里同时包含**当前文件声明的所有符号**：uniform、varying、const、struct、函数（带参数占位），
-以及光标所在函数的局部变量与参数。
+补全列表还包含**文件内声明的所有符号**：uniform、varying、const、struct、函数（插入时带参数占位），
+以及当前函数的局部变量与参数 —— 最后是来自 `#include` 文件的符号，并标注来源文件。
 
-#### 跨文件支持（`#include`）
+### 跨文件支持
 
-`.gdshaderinc` 里声明的符号（含传递 include）会在整个 include 图里解析：
-补全、悬停（同时标注来源文件）、签名帮助、跳转定义、查找引用、重命名都能跨文件工作；
-循环 include 会终止，缺失的 include 会作为警告报出。
+`.gdshaderinc`（含传递 include）里声明的符号会在整个 include 图里解析：补全、悬停（标注来源文件）、
+签名帮助、跳转定义、查找引用、重命名都能跨文件工作；循环 include 会终止，缺失的 include 会作为警告报出。
 
 ```glsl
 // common.gdshaderinc
 uniform vec4 shared_tint : source_color;
-float ripple_at(vec2 p, float freq) { … }
+
+float ripple_at(vec2 p, float freq) {
+    return sin(length(p - vec2(0.5)) * freq);
+}
 ```
 
 ```glsl
@@ -89,91 +109,100 @@ float ripple_at(vec2 p, float freq) { … }
 #include "common.gdshaderinc"
 
 void fragment() {
-    COLOR = shared_tint * ripple_at(UV, 10.0);  // 两个符号都来自 include
+    COLOR = shared_tint * ripple_at(UV, 10.0);   // 两个符号都来自 include
 }
 ```
 
-#### 悬停文档
+`res://shaders/common.gdshaderinc` 与 `./common.gdshaderinc` 两种写法都支持
+（`res://` 按工作区根目录解析）。
 
-类型、描述、可用着色器类型、返回值范围、使用示例——以及你自己定义的函数与 uniform。
+### 悬停
+
+类型、描述、可用的着色器类型、返回值范围与使用示例 —— 以及你自己声明的一切。
 
 ```glsl
 sin(                                  // 悬停 → 签名：sin(float x)
 dot(normal, light_dir)                // 悬停 → 返回：标量 | 示例：dot(normal, light_dir)
 COLOR                                 // 悬停 → 类型：vec4 | 可用：canvas_item、spatial
-tint_sample(uv, amt)                  // 悬停 → 自己的签名、参数列表与上方注释
+tint_sample(uv, amt)                  // 悬停 → 自己的签名、参数与上方的注释
 tint                                  // 悬停 → uniform vec4 tint | 提示：source_color | 可在检查器中编辑
-LightData                             // 悬停 → struct 字段列表与使用位置
+LightData                             // 悬停 → struct 字段与使用位置
 main_light.direction                  // 悬停 → 字段类型
+group_uniforms                        // 悬停 → 关键字说明
 ```
 
-#### 签名帮助
+### 签名帮助
 
-所有内置函数的参数提示（按实参个数自动切换重载），以及你自己定义的函数。
+内置函数（按实参个数自动切换重载）与自定义函数的参数提示 —— 包括写在 include 里的函数，
+以及跨多行的调用。
 
 ```glsl
 mix(█                                 // mix(vecX a, vecX b, float|vecX t)
-clamp(█                               // clamp(vecX x, vecX|float min, vecX|float max)
-vec3(0.5, 0.5, █                      // vec3(float, float, float)——重载自动切换
+vec3(0.5, 0.5, █                      // vec3(float, float, float) —— 自动选中重载
 tint_sample(uv, █                     // vec4 tint_sample(vec2 uv, float amt)
 ```
 
-#### 内联提示
+### 内联提示
 
-参数名内联显示，包括用户自定义函数与跨行调用。可开关配置。
+在实参前内联显示参数名，覆盖内置函数、自定义函数与跨行调用，可关闭。
 
 ```glsl
-mix(x: color1, y: color2, t: 0.5)    // 内置函数
-my_func(n: 10, flag: true)            // 用户自定义函数
+mix(x: color1, y: color2, t: 0.5)
+my_func(n: 10, flag: true)
 ```
 
-#### CodeLens
+### CodeLens
 
-引用计数。
+在每个 `uniform` / `varying` / `const` 上方显示引用次数（不计注释与字符串中的同名文字）。
 
 ```glsl
 uniform float strength;               // 3 references
-void fragment() { … }                 // 1 reference
 ```
 
 ### 诊断
 
-**20+ 条规则** —— 智能过滤，跳过注释和字符串。
+**23 条规则**，全部跳过注释与字符串。
 
 ```glsl
 shader_type spatial;                  // ✅ 有效
 shader_type unknown;                  // ❌ 无效的 shader_type: unknown
-
 render_mode invalid_mode;             // ❌ 'invalid_mode' 对 spatial 无效
-
 uniform int value;                    // ❌ 无效类型 'int'（uniform 不能用 int）
-
-// { " }                               // ✅ 注释和字符串中的大括号被忽略
+// { " }                               // ✅ 注释/字符串中的大括号被忽略
+#include "missing.gdshaderinc"        // ⚠️ 找不到被包含的文件
 ```
 
 | 规则 | 示例 |
-|------|---------|
-| `shader_type` 校验 | `shader_type unknown;` → 错误 |
-| 大括号匹配 | `void f() {` 缺 `}` → 缺少闭合大括号 |
-| 分号 | `COLOR = vec3(1.0)` → 缺少 `;`（支持跨行表达式） |
-| `#include` 目标 | 被包含的文件不存在 → 警告 |
+|------|------|
+| `shader_type` 取值 | `shader_type unknown;` → 错误 |
 | `shader_type` 位置 | 前面出现其他语句 → 警告 |
-| render_mode | `render_mode bad_mode;` → 对当前类型无效 |
+| 大括号匹配 | `void f() {` 缺 `}` → 缺少闭合大括号；多一个 `}` → 警告 |
+| 分号 | `COLOR = vec3(1.0)` → 缺少 `;`（支持跨行表达式） |
+| `#include` 目标 | 文件不存在 → 警告 |
+| `render_mode` | `render_mode bad_mode;` → 对当前类型无效 |
+| `stencil_mode` | `stencil_mode read;` 没有 alpha → 警告 |
+| 声明类型 | `uniform int value;` → uniform 不允许的类型 |
+| 声明语法 | `uniform vec3 broken_type my_var;` → 多了一个标识符 |
+| uniform hint | `: not_a_hint` → 无效的 hint / flag |
+| `const` 初始化 | `const float x;` → 必须初始化 |
+| `varying` 类型 | `varying sampler2D x;` → 不能作为 varying |
+| 重复声明 | 两个 `uniform float x;` → 重复 |
 | 保留字 | `void main() {}` → `main` 是保留字 |
 | 内置变量作用域 | `EYEDIR` 在 spatial 中 → 不可用 |
-| 重复声明 | 两个 `uniform float x;` → 重复 |
-| const 初始化 | `const float x;` → 必须初始化 |
-| 控制流 | `break` 在循环/switch 外 → 错误 |
-| stencil_mode | `stencil_mode read;` 无 alpha → 警告 |
+| 只读输入 | 在只读位置赋值，如 `light()` 里写 `ALBEDO` → 错误 |
+| 内置函数可用性 | spatial 里写 `void sky()` → 错误 |
+| 控制流 | `break` 在循环/switch 外 → 错误；`discard` 不在 fragment/light → 错误 |
 | 数字格式 | `1.5.5` → 无效数字 |
-| 函数可用性 | `void sky()` 在 spatial 中 → 错误 |
-| 未使用变量 | `uniform float x;` 从未使用 → 提示 |
-| 性能（严格模式） | `discard` 在 fragment 中 → 信息 |
-| 纹理在循环中（严格） | `for(…){ texture(…); }` → 警告 |
+| 类型不匹配 | `uint u = VERTEX_ID;`（int → uint）→ 错误 |
+| 无效构造 | `vec2(vec3(1.0))` → 不能截断 |
+| 废弃函数 | `atan2(x, y)` → 应使用 `atan(y, x)` |
+| 未使用的声明 | `uniform float x;` 从未使用 → 提示（也会检查 include 文件） |
+| 未使用的局部变量 | `float tmp = 1.0;` 从未使用 → 警告 |
+| 性能（严格模式） | fragment 里的 `discard` → 提示；循环里 `texture()` → 警告 |
 
 ### 格式化
 
-**全文档和范围格式化**，支持 switch/case、运算符间距、块注释保护。
+整篇与选区格式化，支持 switch/case、运算符空格、块注释保护，并保持文件行尾风格（CRLF 不会变成 LF）。
 
 ```glsl
 // 格式化前
@@ -185,180 +214,205 @@ void fragment() {
 }
 ```
 
-**可配置大括号风格** —— 同行（默认）或另起一行。
+大括号风格可配置 —— `"godot-shader.formatting.braceNewLine": false` 保持同行（默认），
+`true` 则另起一行：
 
 ```glsl
-// "godot-shader.formatting.braceNewLine": false（默认）
-void fragment() {
-    // …
-}
-
-// "godot-shader.formatting.braceNewLine": true
-void fragment()
-{
-    // …
-}
+// false（默认）                // true
+void fragment() {               void fragment()
+    COLOR = vec4(1.0);          {
+}                                   COLOR = vec4(1.0);
+                                }
 ```
 
-**预处理指令**始终顶格：
-
-```glsl
-// 无论嵌套多深，始终顶格
-#ifdef DEBUG
-#define MAX_ITER 32
-#endif
-```
+预处理指令始终顶格；`case`/`default` 标签与三元运算符 `? :` 的空格也会被规范化。
 
 ### 导航
 
-| 动作 | 快捷键 | 示例 |
-|--------|----------|---------|
-| 转到定义 | `F12` | `uniform float x` → 跳转到声明；调用 → 定义；局部变量 → 就近声明；参数 → 参数列表 |
-| 查找引用 | `Shift+F12` | 显示符号的所有使用（局部变量只统计所属函数内） |
-| 重命名 | `F2` | 同时重命名所有出现（局部变量不会改到其他函数的同名变量） |
-| 工作区符号 | `Ctrl+T` | 跨所有 `.gdshader` 文件搜索 uniform/函数 |
-| 文档链接 | Ctrl+点击 | `#include "common.gdshaderinc"` → 打开文件 |
+| 动作 | 快捷键 | 说明 |
+|------|--------|------|
+| 转到定义 | `F12` | 变量/函数/struct 的声明，也能跳进 `.gdshaderinc`；参数跳回参数列表 |
+| 查找引用 | `Shift+F12` | 所有使用位置；局部变量只在本函数，`#include` 符号跨文件搜索 |
+| 重命名 | `F2` | 同时改所有出现位置，包括 include 文件里的声明 |
+| 工作区符号 | `Ctrl+T` | 跨所有 `.gdshader` **与** `.gdshaderinc` 搜索 |
+| 文档链接 | `Ctrl+点击` | `#include "common.gdshaderinc"` → 打开文件 |
 | 选择范围 | `Alt+Shift+→` | `单词` → `行` → `{ 块 }` → `void f() {…}` → 全文 |
-| 大纲 | 侧栏 | 树形视图显示 struct（含字段）、uniform、varying、函数 |
+| 大纲 | 侧栏 | struct（含字段）、uniform、varying、函数 |
 
-### 视觉效果
+其它快捷键：`Ctrl+Space` 触发补全 · `Shift+Alt+F` 格式化文档 · `Ctrl+.` 快速修复 ·
+`Alt+Shift+→` 扩展选区。
 
-**语义高亮** —— 每种 token 类型使用不同颜色：
+### 视觉特性
+
+**语义高亮** —— 每类 token 使用不同颜色：
 
 ```glsl
-uniform float strength;     // 关键词  | 类型  | 变量名
+uniform float strength;     // 关键字 | 类型 | 变量名
 COLOR = vec3(1.0, 0.5, 0.2); // 内置变量 | 类型 | 数字 | 数字 | 数字
-void fragment() { … }       // 关键词  | 函数名
+void fragment() { … }       // 关键字 | 函数名
 ```
 
-**`#if 0` 块变灰** —— 禁用的代码视觉淡化：
+**`#if 0` 变灰** —— 禁用的块按注释作用域着色，视觉上淡化：
 
 ```glsl
 #if 0
-// 这里的所有内容显示为灰色
+// 这里的所有内容都会变灰
 vec3 disabled_color = vec3(1.0, 0.0, 0.0);
-float disabled_value = 1.0;
 #endif
 ```
 
-**颜色选择器** —— 点击颜色值：
+**代码折叠** —— 函数/struct 块、连续 `//` 注释块、跨行 `/* */`、`#if… #endif`。
+
+**取色器** —— 点击颜色字面量：
 
 ```glsl
-vec3 sky = vec3(0.3, 0.5, 1.0);     // 点击 vec3 → 颜色选择器
-vec4 col = vec4(1.0, 0.5, 0.2, 1.0); // 点击 vec4 → 颜色选择器
-#define BG_COLOR #478cbf             // 点击十六进制 → 颜色选择器
+vec3 sky = vec3(0.3, 0.5, 1.0);      // 点 vec3 → 取色器
+vec4 col = vec4(1.0, 0.5, 0.2, 1.0); // 点 vec4 → 取色器
+#define BG_COLOR #478cbf             // 点十六进制 → 取色器
 ```
 
-**代码折叠** —— 函数/struct 块、连续 `//` 注释块、跨行 `/* */` 块、`#if … #endif` 区域。
+**状态栏** —— 显示当前文件的 `shader_type`。
 
-**状态栏** —— 右下角显示当前着色器类型。
+### 快速修复
 
-### 快速修复（`Ctrl+.`）
+在诊断上按 `Ctrl+.`：
 
 ```glsl
-// 修复前：缺少分号
-vec3 col = vec3(1.0)
-// 快速修复：添加 ;
-
-// 修复前：无 shader_type
-render_mode unshaded;
-// 快速修复：添加 shader_type canvas_item;
-
-// 修复前：缺少闭合大括号
-void fragment() {
-    COLOR = vec3(1.0);
-// 快速修复：添加 }
-
-// 修复前：多了一个闭合大括号
-void fragment() {
-    COLOR = vec3(1.0);
-}
-}
-// 快速修复：删除 }
+vec3 col = vec3(1.0)          // 快速修复：补 ;
+render_mode unshaded;         // 快速修复：补 shader_type canvas_item;
+void fragment() { …          // 快速修复：补上缺少的 }
+}                             // 快速修复：删除多余的 }
 ```
 
----
+### 代码片段
 
-## 使用
+共 65 个，按前缀分组（输入前缀后按 `Tab`）：
 
-| 快捷键 | 动作 |
-|----------|--------|
-| `Ctrl+Space` | 触发补全 |
-| `Shift+Alt+F` | 格式化文档 |
-| `F12` | 转到定义 |
-| `Shift+F12` | 查找引用 |
-| `F2` | 重命名符号 |
-| `Ctrl+T` | 工作区符号 |
-| `Ctrl+.` | 快速修复 |
-| `Alt+Shift+→` | 展开选择 |
-
-<details>
-<summary><b>代码片段</b>（65 个）</summary>
-
-| 前缀 | 输出 |
-|--------|--------|
-| `shader-{canvas,spatial,sky,fog,particles}` | 完整着色器模板 |
-| `shader-{canvas,spatial}-full` | 包含所有段的模板 |
-| `func-{vertex,fragment,light}` `sky-func` `fog-func` | 函数桩 |
-| `uniform` `uniform-{range,color,texture,filter}` | uniform 声明 |
-| `varying` | varying 声明 |
-| `if` `ifelse` `for` `switch` | 控制流 |
-| `set-{color,albedo,metallic,roughness,emission}` | 输出赋值 |
+| 前缀 | 插入内容 |
+|------|----------|
+| `shader-{canvas,spatial,sky,fog,particles}` | 最简着色器模板 |
+| `shader-{canvas,spatial}-full` | 含全部段落的模板 |
+| `func-{vertex,fragment,light}`、`sky-func`、`fog-func` | 入口函数骨架 |
+| `uniform`、`uniform-{range,color,texture,filter}` | uniform 声明 |
+| `varying`、`struct` | varying / struct 块 |
+| `if`、`ifelse`、`for`、`while` | 控制流 |
 | `ctor-{vec2,vec3,vec4,mat4}` | 构造函数 |
-| `math-{clamp,lerp,normalize}` | 数学运算 |
-| `sample-{texture,texturelod}` | 纹理采样 |
-| `#ifdef` `#ifndef` `#include` | 预处理器（自动插入 `#endif`） |
-</details>
+| `sample-texture`、`sample-texturelod` | 纹理采样 |
+| `builtin-{time,vertex,tangent,binormal,uv,uv2,screen-uv}` | 内置变量引用 |
+| `set-{color,albedo,alpha,metallic,roughness,emission,normal-map,normal-depth}` | 输出赋值 |
+| `set-normal`、`builtin-*` | 内置值引用 |
+| `alpha-scissor` | `ALPHA_SCISSOR_THRESHOLD` |
+| `anim-{vertex,uv}` | 顶点/UV 动画 |
+| `math-{lerp,clamp,smoothstep,normalize,dot,cross,length,distance}` | 数学函数 |
+| `fresnel`、`hemi-light`、`phong` | 光照片段 |
+| `comment`、`todo`、`fixme` | 注释块 |
+| `ifdef`、`ifndef`、`define` | 预处理器（会一并插入 `#endif`） |
 
 ---
 
-## 配置
+## 配置项
 
-| 设置 | 默认值 | 描述 |
-|---------|---------|-------------|
+| 设置 | 默认值 | 说明 |
+|------|--------|------|
 | `godot-shader.general.language` | `en` | 界面语言：`en` / `zh` |
-| `godot-shader.diagnostics.checkBuiltinScope` | `true` | 按着色器类型校验内置变量作用域 |
-| `godot-shader.diagnostics.strictMode` | `false` | 额外警告（discard 性能、循环内纹理） |
-| `godot-shader.formatting.braceNewLine` | `false` | 大括号另起一行 |
-| `godot-shader.inlayHints.showParameterNames` | `true` | 显示参数名提示 |
-| `godot-shader.colorPicker.enabled` | `true` | 为颜色值显示颜色选择器 |
+| `godot-shader.diagnostics.checkBuiltinScope` | `true` | 校验内置变量在各着色器类型中的可用性 |
+| `godot-shader.diagnostics.strictMode` | `false` | 额外的性能警告（`discard`、循环内 `texture()`） |
+| `godot-shader.formatting.braceNewLine` | `false` | `{` 是否另起一行 |
+| `godot-shader.inlayHints.showParameterNames` | `true` | 是否显示参数名内联提示 |
+| `godot-shader.colorPicker.enabled` | `true` | 是否为颜色字面量显示取色器 |
 
 ---
 
-## 项目结构
+## 环境要求
+
+- **VS Code 1.85** 及以上
+- Godot **4.x** 的着色器语法（`shader_type` 风格，`.gdshader` / `.gdshaderinc`）
+- 不需要安装 Godot、不需要构建、不常驻后台 —— 纯静态分析
+
+---
+
+## 已知限制
+
+- **诊断是启发式的**：采用针对性解析而非完整 GLSL 编译器，速度快、不受注释干扰，但可能漏掉非常规写法
+  （不会阻塞保存）。
+- **`#include` 按文本解析**：所有 `#include` 行都会被跟进，构建符号表时不求值条件编译（`#if`）。
+- **重命名共享 include 里的符号会改写该文件**，因此其它 include 它的着色器同样受影响 —— 这是
+  `#include` 的语义，插件无法只改一处。
+- **`#if 0` 变灰是块级的**：若禁用块内部还有嵌套 `#endif`，变灰会提前结束。
+- **取色器**只识别 `vec3(r, g, b)`、`vec4(r, g, b, a)` 与 `#RRGGBB` / `#RRGGBBAA` 字面量，
+  不识别 `vec4(vec3, a)` 或单值 `vec3(x)`。
+- **不做着色器预览/编译**，渲染以 Godot 为准。
+
+---
+
+## 常见问题
+
+**没有任何高亮 / 插件好像没生效。**
+插件只对 `.gdshader` 与 `.gdshaderinc` 生效。看状态栏的语言标识，必要时用
+*Change Language Mode → Godot Shader* 手动切换。
+
+**`#include` 报「找不到被包含的文件」。**
+把 Godot 项目根目录（含 `project.godot` 的那一层）作为工作区根打开，`res://` 才能解析；
+或改用相对当前文件的路径。
+
+**重命名把 `.gdshaderinc` 也改了。**
+这是预期行为：符号就声明在那里。见[已知限制](#已知限制)。
+
+**代码片段打不出来。**
+输入前缀后按 `Tab`，并确认 *Editor › Suggest: Snippets* 已开启。
+
+**格式化把我大括号挪位置了。**
+由 `godot-shader.formatting.braceNewLine` 控制（默认同行）。
+
+**怎么切换界面语言？**
+`godot-shader.general.language`：`en` 或 `zh`，诊断信息跟随同一语言。
+
+---
+
+## 开发
+
+```bash
+npm install
+npm run compile      # tsc → out/
+npm run package      # 升版本 + 编译 + 生成 .vsix
+```
 
 ```text
 src/
-  extension.ts              # 入口 —— 注册所有供应器
-  shader-data.ts             # 160+ 内置变量、74 个函数、类型、关键词、渲染模式
-  i18n.ts                    # 中英双语翻译
-  en-descriptions.ts         # 380+ 英文描述
-  utils.ts                   # 共享工具函数
+  extension.ts            # 激活、注册所有 Provider、状态栏
+  shader-data.ts          # 162 内置符号、121 函数、23 类型、28 关键字、hint、render_mode
+  symbol-index.ts         # 单文档符号索引（uniform/局部/函数/struct），按版本缓存
+  include-graph.ts        # #include 图 → 跨文件符号表（防循环）
+  i18n.ts                 # 中英文案
+  en-descriptions.ts      # 345 条英文描述
+  utils.ts                # 注释/字符串屏蔽、声明与作用域解析
   features/
-    completion.ts            # 上下文感知补全 + #include 路径 + 预处理器
-    hover.ts                 # 悬停文档 + 示例 + 返回值
-    diagnostics.ts           # 17 条诊断规则
-    formatting.ts            # 文档与范围格式化 + 大括号风格
-    signature-help.ts        # 函数参数提示
-    code-actions.ts          # 快速修复
-    folding.ts               # 代码折叠（大括号 + 函数检测）
-    semantic-tokens.ts       # 语义高亮 + #if 0 变灰
-    definition.ts            # 转到定义 + #include 跳转
-    references.ts            # 查找所有引用
-    rename.ts                # 符号重命名
-    highlight.ts             # 文档高亮
-    color-picker.ts          # vec3/vec4/十六进制颜色选择器
-    workspace-symbols.ts     # 跨文件符号搜索（缓存）
-    symbol-provider.ts       # 大纲与面包屑
-    inlay-hints.ts           # 参数名提示（内置 + 用户函数）
-    code-lens.ts             # 引用计数 CodeLens
-    document-links.ts        # #include 可点击链接
-    selection-range.ts       # 智能选择展开
+    completion.ts         # 上下文补全、用户符号、分量、struct 字段
+    hover.ts              # 内置 + 用户 + 跨文件悬停
+    diagnostics.ts        # 23 条规则
+    formatting.ts         # 整篇/选区格式化
+    signature-help.ts     # 内置重载 + 用户/跨文件函数
+    code-actions.ts       # 快速修复（分号、shader_type、大括号）
+    folding.ts            # 代码块、注释块、#if 区段
+    semantic-tokens.ts    # 语义高亮 + #if 0 处理
+    definition.ts         # 跳转定义（本地 → include 图）
+    references.ts         # 查找引用（作用域 & include 感知）
+    rename.ts             # 重命名（作用域 & include 感知）
+    highlight.ts          # 同名高亮（读/写）
+    color-picker.ts       # vec3 / vec4 / 十六进制
+    workspace-symbols.ts  # 工作区符号（带缓存）
+    symbol-provider.ts    # 大纲与面包屑
+    inlay-hints.ts        # 参数名提示（支持跨行）
+    code-lens.ts          # 引用计数
+    document-links.ts     # 可点击的 #include
+    selection-range.ts    # 智能选择扩展
 syntaxes/
-  godot-shader.tmLanguage.json   # TextMate 语法
+  godot-shader.tmLanguage.json
 snippets/
-  godot-shader.json              # 65 个代码片段
+  godot-shader.json
 ```
+
+欢迎提 Issue 或 PR。
 
 ---
 
@@ -368,13 +422,13 @@ AGPL-3.0 © [Fair Yan](https://github.com/yanhuifair)
 
 ---
 
-## 赞赏
+## 支持作者
+
 <div align="left">
   <img alt="Appreciate" src="images/appreciate.JPG" width="300" />
 </div>
 
-
-## Star 历史
+## Star History
 
 <a href="https://www.star-history.com/?repos=yanhuifair%2FGodot-Shader-For-VScode&type=date&legend=top-left">
  <picture>

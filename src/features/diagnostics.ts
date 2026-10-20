@@ -667,8 +667,9 @@ export class GodotShaderDiagnosticProvider {
 
     // 11. 检查 varying 类型
     private checkVaryingType(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        // varying 会被插值，采样器不能作为 varying（只能是 uniform）
         const validTypes = ['bvec2', 'bvec3', 'bvec4', 'bool', 'float', 'int', 'ivec2', 'ivec3', 'ivec4',
-                            'mat2', 'mat3', 'mat4', 'sampler2D', 'sampler2DArray', 'samplerCube',
+                            'mat2', 'mat3', 'mat4',
                             'uvec2', 'uvec3', 'uvec4',
                             'vec2', 'vec3', 'vec4'];
 

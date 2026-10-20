@@ -9,6 +9,9 @@
       "include": "#strings"
     },
     {
+      "include": "#preprocessor-disabled"
+    },
+    {
       "include": "#preprocessor"
     },
     {
@@ -116,6 +119,22 @@
           }
         }
       ]
+    },
+    "preprocessor-disabled": {
+      "begin": "^(\\s*)(#\\s*if\\s+0\\b)",
+      "beginCaptures": {
+        "2": {
+          "name": "keyword.control.preprocessor.gdshader"
+        }
+      },
+      "end": "^(\\s*)(#\\s*endif\\b)",
+      "endCaptures": {
+        "2": {
+          "name": "keyword.control.preprocessor.gdshader"
+        }
+      },
+      "contentName": "comment.block.disabled.gdshader",
+      "patterns": []
     },
     "preprocessor": {
       "patterns": [
