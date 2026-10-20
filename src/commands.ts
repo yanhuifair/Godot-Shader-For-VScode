@@ -45,6 +45,11 @@ export function registerCommands(
             void vscode.window.showWarningMessage(t('expand.need_shader_file'));
             return;
         }
+        // .gdshaderinc 是被 include 的片段，不应该有 shader_type
+        if (/\.gdshaderinc$/i.test(editor.document.uri.path)) {
+            void vscode.window.showWarningMessage(t('cmd.switch_type.not_include'));
+            return;
+        }
 
         const items = Object.keys(GODOT_SHADER_TYPE_DESCRIPTIONS).sort().map(type => ({
             label: type,

@@ -40,10 +40,6 @@ const zh: Record<string, string> = {};
 const en: Record<string, string> = {};
 
 // uniform/varying
-zh['uniform.declaration'] = '声明外部可调参数。可以在检查器中编辑。';
-en['uniform.declaration'] = 'Declare an externally adjustable parameter. Editable in the inspector.';
-zh['varying.declaration'] = '在 vertex() 和 fragment() 函数之间传递数据。';
-en['varying.declaration'] = 'Pass data between vertex() and fragment() functions.';
 
 // 诊断（被旧代码引用，保留）
 zh['diag.missing_semicolon'] = '缺少分号 ;';
@@ -66,6 +62,10 @@ zh['fix.create_include'] = '创建文件 "{0}"';
 en['fix.create_include'] = 'Create file "{0}"';
 zh['fix.organize_includes'] = '整理 #include（排序 + 去重，删除 {0} 条）';
 en['fix.organize_includes'] = 'Organize #include (sort + dedupe, {0} removed)';
+zh['cmd.switch_type.not_include'] = '.gdshaderinc 片段里不需要 shader_type（它由包含它的 .gdshader 决定）';
+en['cmd.switch_type.not_include'] = 'A .gdshaderinc fragment does not need shader_type — the including .gdshader provides it';
+zh['rename.entry_point'] = "'{0}' 是引擎按名字调用的入口函数，改名会让着色器失效";
+en['rename.entry_point'] = "'{0}' is called by the engine by name — renaming it breaks the shader";
 zh['fix.fix_all'] = '修复所有可自动修复的问题（{0} 处）';
 en['fix.fix_all'] = 'Fix all auto-fixable problems ({0})';
 zh['fix.remove_brace'] = '删除多余的反大括号 }';
@@ -104,10 +104,6 @@ zh['deco.included_by'] = '被 {0} 包含';
 en['deco.included_by'] = 'Included by {0}';
 
 // 命令：定位
-zh['cmd.reveal.title'] = '跳转到位置';
-en['cmd.reveal.title'] = 'Reveal Location';
-zh['cmd.refresh_tree.title'] = '刷新着色器视图';
-en['cmd.refresh_tree.title'] = 'Refresh Shader View';
 
 // 聊天参与者
 zh['chat.need_shader_file'] = '请先打开一个 Godot 着色器文件（.gdshader / .gdshaderinc）。';
@@ -197,8 +193,6 @@ zh['diag.missing_braces'] = '缺少 {0} 个反大括号 }';
 en['diag.missing_braces'] = 'Missing {0} closing brace(s) }';
 zh['diag.invalid_render_mode'] = "render_mode '{0}' 对 {1} 无效。有效选项: {2}";
 en['diag.invalid_render_mode'] = "render_mode '{0}' is invalid for {1}. Valid: {2}";
-zh['diag.unknown_function'] = "未知的函数 '{0}'。Godot Shader 有效函数: {1}";
-en['diag.unknown_function'] = "Unknown function '{0}'. Valid Godot Shader functions: {1}";
 zh['diag.invalid_type'] = "无效的类型 '{0}'。有效类型: {1}";
 en['diag.invalid_type'] = "Invalid type '{0}'. Valid types: {1}";
 zh['diag.invalid_hint'] = "无效的 hint/flags: '{0}'";

@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
-import { escapeRegExp, parseDeclaration, computeCodeOnlyLines } from '../utils';
-import { GODOT_SHADER_KEYWORD_SET } from '../shader-data';
+import { computeCodeOnlyLines } from '../utils';
+import { GODOT_SHADER_KEYWORD_SET, GODOT_SHADER_ENTRY_POINTS } from '../shader-data';
+import { getDocIndex } from '../symbol-index';
 import { getLang } from '../i18n';
 
 /**
@@ -32,16 +33,28 @@ export class GodotShaderCodeLensProvider implements vscode.CodeLensProvider {
         // 预先计算整个文档中每个标识符的出现次数
         const refCounts = this.computeReferenceCounts(document);
 
+        // 文件级声明（uniform / varying / const / 全局对象）由符号索引给出
+        const varAtLine = new Map<number, string>();
+        const funcAtLine = new Map<number, string>();
+        const index = getDocIndex(document);
+        for (const v of index.vars) {
+            if (v.funcName || v.keyword === 'local' || v.keyword === 'param') continue;
+            varAtLine.set(v.line, v.name);
+        }
+        for (const f of index.funcs) {
+            // 入口函数由引擎调用，没有"引用"可言，不显示计数
+            if (GODOT_SHADER_ENTRY_POINTS.has(f.name)) continue;
+            funcAtLine.set(f.line, f.name);
+        }
+
         for (let i = 0; i < document.lineCount; i++) {
             if (token.isCancellationRequested) break;
 
             const line = document.lineAt(i);
-            const text = line.text.trim();
 
-            // 匹配 uniform / varying / const 声明: keyword type name（含 global/instance 前缀、flat/smooth）
-            const decl = parseDeclaration(text);
-            if (decl && (decl.keyword === 'uniform' || decl.keyword === 'varying' || decl.keyword === 'const')) {
-                const name = decl.name;
+            const varName = varAtLine.get(i);
+            if (varName) {
+                const name = varName;
                 // 减去声明行自身的一次出现，得到真实引用数
                 const count = Math.max(0, (refCounts.get(name) || 0) - 1);
                 const nameIndex = line.text.indexOf(name);
@@ -61,13 +74,12 @@ export class GodotShaderCodeLensProvider implements vscode.CodeLensProvider {
                 continue;
             }
 
-            // 匹配 Godot 着色器入口函数: void vertex() / void fragment() 等
-            const funcMatch = text.match(/^void\s+(\w+)\s*\(/);
-            if (funcMatch) {
-                const funcName = funcMatch[1];
-                // 减去声明行自身的一次出现，得到真实引用数
+            // 用户自定义函数（含 float / vec4 等返回类型）
+            const funcName = funcAtLine.get(i);
+            if (funcName) {
                 const count = Math.max(0, (refCounts.get(funcName) || 0) - 1);
                 const nameIndex = line.text.indexOf(funcName);
+                if (nameIndex < 0) continue;
                 const range = new vscode.Range(i, nameIndex, i, nameIndex + funcName.length);
 
                 const lens = new vscode.CodeLens(range);

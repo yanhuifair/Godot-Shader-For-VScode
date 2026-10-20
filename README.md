@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.115-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.116-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -55,6 +55,7 @@ Full language support for Godot 4 shaders — **28 language providers**, **162 b
   flagged, and every shader in the workspace.
 - **Ask `@shader`** — chat participant for `/expand`, `/uniforms`, `/diagnostics` and `/docs`
   (`/expand` & co. work without a language model).
+- **Works everywhere** — unsaved buffers, Remote-SSH, WSL, dev containers and virtual file systems.
 - **Everything else** — semantic highlighting, folding, color picker, quick fixes, code lens,
   snippets, bilingual UI.
 
@@ -195,7 +196,7 @@ uniform float strength;               // 3 references
 shader_type spatial;                  // ✅ valid
 shader_type unknown;                  // ❌ Invalid shader_type: unknown
 render_mode invalid_mode;             // ❌ 'invalid_mode' is invalid for spatial
-uniform int value;                    // ❌ Invalid type 'int' (uniforms can't be int)
+uniform double value;                 // ❌ Invalid type 'double' (not a Godot uniform type)
 // { " }                               // ✅ braces in comments/strings ignored
 #include "missing.gdshaderinc"        // ⚠️ Included file not found
 ```
@@ -209,7 +210,7 @@ uniform int value;                    // ❌ Invalid type 'int' (uniforms can't 
 | `#include` target | File not found → warning |
 | `render_mode` | `render_mode bad_mode;` → invalid for the current type |
 | `stencil_mode` | `stencil_mode read;` without alpha → warning |
-| Declaration types | `uniform int value;` → invalid type for uniforms |
+| Declaration types | `uniform double value;` → invalid type for uniforms (struct types are allowed) |
 | Declaration syntax | `uniform vec3 broken_type my_var;` → extra identifier |
 | Uniform hints | `: not_a_hint` → invalid hint / flag |
 | `const` init | `const float x;` → must be initialized |

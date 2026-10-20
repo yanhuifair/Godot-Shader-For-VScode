@@ -2,7 +2,7 @@
 	"name": "godot-shader-for-vscode",
 	"displayName": "Godot Shader For VSCode",
 	"description": "The best Godot Shader development extension. 最佳的 Godot Shader 开发插件。",
-	"version": "1.0.115",
+	"version": "1.0.116",
 	"license": "AGPL-3.0",
 	"publisher": "FairYan",
 	"icon": "images/logo.png",
@@ -34,7 +34,8 @@
 		"Snippets"
 	],
 	"activationEvents": [
-		"onLanguage:godot-shader"
+		"onLanguage:godot-shader",
+		"onView:godotShaderOutline"
 	],
 	"main": "./out/extension",
 	"scripts": {
@@ -213,10 +214,6 @@
 				{
 					"command": "godotShader.insertTemplate",
 					"when": "editorLangId == godot-shader"
-				},
-				{
-					"command": "godotShader.refreshTree",
-					"when": "view == godotShaderOutline"
 				},
 				{
 					"command": "godotShader.revealLocation",

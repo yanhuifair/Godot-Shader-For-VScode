@@ -16,10 +16,6 @@ interface FuncLocation {
     symbol: FuncSymbol | null;
 }
 
-interface CallSite {
-    line: number;
-    start: number;
-}
 
 /**
  * 函数调用层次：

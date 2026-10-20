@@ -50,7 +50,7 @@ export class GodotShaderDocumentSymbolProvider implements vscode.DocumentSymbolP
                 : vscode.SymbolKind.Variable;
             symbols.push(new vscode.DocumentSymbol(
                 v.name,
-                `${v.keyword} ${v.type}${v.hint ? ' : ' + v.hint : ''}`,
+                v.keyword === 'global' ? v.type : `${v.keyword} ${v.type}${v.hint ? ' : ' + v.hint : ''}`,
                 kind,
                 lineRange(v.line),
                 nameRange(v.line, v.name)

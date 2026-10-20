@@ -68,8 +68,9 @@ export class GodotShaderTypeHierarchyProvider implements vscode.TypeHierarchyPro
         }));
 
         if (!entries.some(e => e.sym.name === name)) {
-            // 变量 → 它的 struct 类型
-            const v = getDocIndex(document).vars.find(v => v.name === name);
+            // 变量 → 它的 struct 类型（本文件优先，其次 include 里的声明）
+            const v = getDocIndex(document).vars.find(v => v.name === name)
+                ?? project.vars.find(p => p.sym.name === name)?.sym;
             if (!v) return null;
             name = v.type;
         }

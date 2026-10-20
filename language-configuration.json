@@ -80,6 +80,12 @@
 	},
 	"onEnterRules": [
 		{
+			"beforeText": "^\\s*#(?:if|ifdef|ifndef|else|elif|endif|define|undef|include|pragma|error|warning)\\b",
+			"action": {
+				"indent": "none"
+			}
+		},
+		{
 			"beforeText": "^.*\\{[^}]*$",
 			"afterText": "^\\s*\\}",
 			"action": {

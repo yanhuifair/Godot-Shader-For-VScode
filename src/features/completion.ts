@@ -18,7 +18,7 @@ import {
     getVariableShaderTypes
 } from '../shader-data';
 import { t, getLanguage, td, getLang } from '../i18n';
-import { getShaderType } from '../utils';
+import { getShaderType, computeCodeOnlyLines } from '../utils';
 import { getDocIndex, getLocalSymbols, getGlobalSymbols } from '../symbol-index';
 import { getProjectSymbols } from '../include-graph';
 import { getWorkspaceIncludeSymbols, buildIncludeInsertion } from '../workspace-includes';
@@ -52,10 +52,30 @@ vscode.workspace.onDidChangeConfiguration((e) => {
     }
 });
 
+let maskCache: { key: string; lines: string[] } = { key: '', lines: [] };
+
 export class GodotShaderCompletionProvider implements vscode.CompletionItemProvider {
     
     // 触发字符：`.` 用于分量补全，`:` 用于 uniform hint，`#` 用于预处理器
     public static readonly triggerCharacters = ['.', ':', '#'];
+
+    /**
+     * 光标是否落在注释里（跨行块注释也能识别）。
+     * 用"抹掉注释后的等长代码行"做对比：该位置被抹成空格而原文不是空格 → 在注释里。
+     */
+    private isInsideComment(document: vscode.TextDocument, position: vscode.Position): boolean {
+        const key = document.uri.toString() + '|' + (document.version ?? 0);
+        if (maskCache.key !== key) {
+            const rawLines: string[] = [];
+            for (let i = 0; i < document.lineCount; i++) rawLines.push(document.lineAt(i).text);
+            maskCache = { key, lines: computeCodeOnlyLines(rawLines) };
+        }
+        const raw = document.lineAt(position.line).text;
+        const code = maskCache.lines[position.line] ?? '';
+        const idx = Math.min(position.character, raw.length - 1);
+        if (idx < 0) return false;
+        return (code[idx] ?? ' ') === ' ' && raw[idx] !== ' ';
+    }
     
     public provideCompletionItems(
         document: vscode.TextDocument,
@@ -85,6 +105,11 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
         // #include 路径补全 — 优先级最高
         if (isIncludePath) {
             return this.getIncludePathCompletions(document, position);
+        }
+
+        // 注释里不弹补全（字符串里可能是 #include 路径，已在上一步处理）
+        if (this.isInsideComment(document, position)) {
+            return [];
         }
 
         // 预处理器指令补全 — #ifdef / #ifndef / #define 等

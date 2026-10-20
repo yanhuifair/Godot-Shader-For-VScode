@@ -332,7 +332,7 @@ export const GODOT_SHADER_FUNCTIONS = [
     { name: "textureArray", signature: "textureArray(sampler2DArray tex, vec3 uvw)", description: "采样 2D 纹理数组" },
     
     // 数学函数 - 插值
-    { name: "mix", signature: "mix(vecX a, vecX b, float|vecX t)", description: "线性插值。支持两种模式: mix(a, b, float t) 标量混合, mix(a, b, vecX t) 逐分量混合" },
+    { name: "mix", signature: "mix(vecX x, vecX y, float|vecX a)", description: "线性插值（GLSL 语义 mix(x, y, a)）。a=0 返回 x，a=1 返回 y；支持 float 或逐分量混合" },
     { name: "clamp", signature: "clamp(vecX x, vecX|float min, vecX|float max)", description: "钳制数值到 [min, max] 范围。支持 vecX 和 float 参数" },
     { name: "step", signature: "step(float|vecX edge, float|vecX x)", description: "阶跃函数（x < edge 返回 0，否则返回 1）。支持 float 和 vecX 参数" },
     { name: "smoothstep", signature: "smoothstep(float edge0, float edge1, float|vecX x)", description: "平滑阶跃函数（Hermite 插值）。支持 float 和 vecX 参数" },
@@ -839,6 +839,14 @@ export function getVariableShaderTypes(variableName: string): string[] | null {
 
 /** 关键字集合（供 highlight/rename 等复用） */
 export const GODOT_SHADER_KEYWORD_SET: Set<string> = new Set(GODOT_SHADER_KEYWORDS.concat(['true', 'false']));
+
+/**
+ * 由 Godot 按名字调用的着色器入口函数。
+ * 它们不会被任何代码"引用"，也不允许重命名 —— 所有相关功能共用这一份清单。
+ */
+export const GODOT_SHADER_ENTRY_POINTS: Set<string> = new Set([
+    'vertex', 'fragment', 'light', 'start', 'process', 'sky', 'fog'
+]);
 
 /** GLSL 内置函数名集合（供 rename 复用） */
 export const GODOT_SHADER_GLSL_BUILTIN_SET: Set<string> = new Set(

@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
-import { GODOT_SHADER_KEYWORD_SET, GODOT_SHADER_GLSL_BUILTIN_SET, GODOT_SHADER_BUILTIN_NAME_SET } from '../shader-data';
+import { GODOT_SHADER_KEYWORD_SET, GODOT_SHADER_GLSL_BUILTIN_SET, GODOT_SHADER_BUILTIN_NAME_SET, GODOT_SHADER_ENTRY_POINTS } from '../shader-data';
 import { computeCodeOnlyLines, escapeRegExp, getSymbolScope } from '../utils';
 import { findInIncludes, getProjectSourceFiles, getProjectSymbols } from '../include-graph';
+import { getDocIndex } from '../symbol-index';
+import { t } from '../i18n';
 
 export class GodotShaderRenameProvider implements vscode.RenameProvider {
 
@@ -18,6 +20,12 @@ export class GodotShaderRenameProvider implements vscode.RenameProvider {
         }
 
         const word = document.getText(wordRange);
+
+        // 着色器入口函数由引擎按名字调用，改名会直接让着色器失效
+        // （只拦函数，`vec3 light = …` 这类同名变量照常可以改）
+        if (GODOT_SHADER_ENTRY_POINTS.has(word) && getDocIndex(document).funcs.some(f => f.name === word)) {
+            throw new Error(t('rename.entry_point', word));
+        }
 
         // 排除关键字（复用统一的 Set）
         if (GODOT_SHADER_KEYWORD_SET.has(word)) {

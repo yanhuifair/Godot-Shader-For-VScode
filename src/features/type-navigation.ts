@@ -17,9 +17,13 @@ function findStruct(document: vscode.TextDocument, name: string): { sym: StructS
 function declaredTypeOf(document: vscode.TextDocument, word: string): string | null {
     const index = getDocIndex(document);
     const candidates = index.vars.filter(v => v.name === word);
-    if (candidates.length === 0) return null;
-    const local = candidates.find(v => v.keyword === 'local' || v.keyword === 'param');
-    return (local ?? candidates[0]).type;
+    if (candidates.length > 0) {
+        const local = candidates.find(v => v.keyword === 'local' || v.keyword === 'param');
+        return (local ?? candidates[0]).type;
+    }
+    // 声明在 #include 文件里的变量（如 common.gdshaderinc 中的 `Light lamp;`）
+    const fromInclude = getProjectSymbols(document).vars.find(v => v.sym.name === word);
+    return fromInclude ? fromInclude.sym.type : null;
 }
 
 /**

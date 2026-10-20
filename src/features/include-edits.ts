@@ -4,7 +4,7 @@
 import * as vscode from 'vscode';
 import { getProjectSymbols } from '../include-graph';
 import { buildIncludeBlockInsertion, getWorkspaceIncludeSymbols, toIncludePath } from '../workspace-includes';
-import { GODOT_SHADER_KEYWORDS, GODOT_SHADER_TYPES } from '../shader-data';
+import { GODOT_SHADER_KEYWORDS, GODOT_SHADER_TYPES, GODOT_SHADER_BUILTIN_NAME_SET, GODOT_SHADER_GLSL_BUILTIN_SET } from '../shader-data';
 import { t } from '../i18n';
 
 /** 自定义 kind：粘贴/拖拽时顺带补 #include */
@@ -53,6 +53,8 @@ function collectIdentifiers(text: string): Set<string> {
         const word = match[0];
         if (word.length < 2) continue;
         if (keywordSet.has(word) || typeSet.has(word)) continue;
+        // 内置变量（COLOR / UV / TIME…）与 GLSL 内置函数（texture / mix…）永远不需要 include
+        if (GODOT_SHADER_BUILTIN_NAME_SET.has(word) || GODOT_SHADER_GLSL_BUILTIN_SET.has(word)) continue;
         words.add(word);
     }
     return words;

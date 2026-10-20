@@ -3,6 +3,7 @@
 
 import * as vscode from 'vscode';
 import { getWorkspaceIncludeFiles, toIncludePath } from '../workspace-includes';
+import { computeCodeOnlyLines } from '../utils';
 
 /** shader_type 的合法值（与诊断保持一致） */
 const SHADER_TYPES = ['canvas_item', 'spatial', 'sky', 'fog', 'particles'];
@@ -54,8 +55,11 @@ export class GodotShaderInlineCompletionProvider implements vscode.InlineComplet
         if (groupMatch) {
             const prefix = groupMatch[1];
             const groups = new Set<string>();
-            for (let i = 0; i < document.lineCount; i++) {
-                const m = /^\s*group_uniforms\s+([A-Za-z_]\w*)\s*;/.exec(document.lineAt(i).text);
+            const rawLines: string[] = [];
+            for (let i = 0; i < document.lineCount; i++) rawLines.push(document.lineAt(i).text);
+            // 用抹掉注释的代码行判断，注释里的分组名不算
+            for (const text of computeCodeOnlyLines(rawLines)) {
+                const m = /^\s*group_uniforms\s+([A-Za-z_]\w*)\s*;/.exec(text);
                 if (m) groups.add(m[1]);
             }
             const hits = [...groups].filter(g => g.startsWith(prefix) && g !== prefix);

@@ -54,6 +54,8 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
 
     private structNames = new Set<string>();
     private structFields = new Set<string>();
+    /** 本文件里声明过的符号名：全大写的用户常量不该按"内置变量"着色 */
+    private declaredNames = new Set<string>();
 
     public provideDocumentSemanticTokens(
         document: vscode.TextDocument,
@@ -75,6 +77,10 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
         // struct 名称与字段名：让它们按 type / property 着色，而不是默认的 variable
         const docIndex = getDocIndex(document);
         this.structNames = new Set(docIndex.structs.map(s => s.name));
+        this.declaredNames = new Set([
+            ...docIndex.vars.map(v => v.name),
+            ...docIndex.funcs.map(f => f.name)
+        ]);
         this.structFields = new Set<string>();
         for (const s of docIndex.structs) for (const f of s.fields) this.structFields.add(f.name);
 
@@ -118,7 +124,6 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
     }
 
     private classifyToken(word: string, lineText: string, pos: number, lineNum: number): { tokenType: number; tokenModifiers: number } | null {
-        const upperWord = word.toUpperCase();
         let modifiers = 0;
 
         // 判断是否位于声明上下文中
@@ -193,9 +198,9 @@ export class GodotShaderSemanticTokensProvider implements vscode.DocumentSemanti
             }
         }
 
-        // 6. 其他大写词倾向于是内置变量
+        // 6. 其他大写词：自己声明的按变量，未声明的倾向于是内置变量
         if (word === word.toUpperCase() && word.length > 2) {
-            return { tokenType: 1, tokenModifiers: modifiers }; // property
+            return { tokenType: this.declaredNames.has(word) ? 0 : 1, tokenModifiers: modifiers };
         }
 
         return { tokenType: 0, tokenModifiers: modifiers }; // variable (默认)

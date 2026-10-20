@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.115-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.116-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -51,6 +51,7 @@ Godot 4 着色器的完整语言支持 —— **28 个语言能力（Provider）
 - **真正的侧边栏** —— 按 `group_uniforms` 分组的参数、带缺失标注的 include 图、工作区全部着色器。
 - **问 `@shader`** —— 对话里使用 `/expand`、`/uniforms`、`/diagnostics`、`/docs`
   （斜杠命令不需要语言模型）。
+- **随处可用** —— 未保存的文件、Remote-SSH、WSL、开发容器与虚拟文件系统里一样能用。
 - **其它** —— 语义高亮、折叠、取色器、快速修复、CodeLens、代码片段、中英双语 UI。
 
 全部功能都是静态分析，**不需要启动 Godot**。
@@ -189,7 +190,7 @@ uniform float strength;               // 3 references
 shader_type spatial;                  // ✅ 有效
 shader_type unknown;                  // ❌ 无效的 shader_type: unknown
 render_mode invalid_mode;             // ❌ 'invalid_mode' 对 spatial 无效
-uniform int value;                    // ❌ 无效类型 'int'（uniform 不能用 int）
+uniform double value;                 // ❌ 无效类型 'double'（Godot 没有这种 uniform 类型）
 // { " }                               // ✅ 注释/字符串中的大括号被忽略
 #include "missing.gdshaderinc"        // ⚠️ 找不到被包含的文件
 ```
@@ -203,7 +204,7 @@ uniform int value;                    // ❌ 无效类型 'int'（uniform 不能
 | `#include` 目标 | 文件不存在 → 警告 |
 | `render_mode` | `render_mode bad_mode;` → 对当前类型无效 |
 | `stencil_mode` | `stencil_mode read;` 没有 alpha → 警告 |
-| 声明类型 | `uniform int value;` → uniform 不允许的类型 |
+| 声明类型 | `uniform double value;` → uniform 不支持的类型（struct 类型是合法的） |
 | 声明语法 | `uniform vec3 broken_type my_var;` → 多了一个标识符 |
 | uniform hint | `: not_a_hint` → 无效的 hint / flag |
 | `const` 初始化 | `const float x;` → 必须初始化 |

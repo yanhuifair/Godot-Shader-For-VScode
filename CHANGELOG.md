@@ -4,6 +4,45 @@ All notable changes to **Godot Shader for VS Code** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.116] — 2026-10-21
+
+Full audit pass: fixed false positives, dead ends and several cases where two features disagreed.
+
+### Fixed
+
+- **Language features only worked for `file:` documents.** The document selector pinned
+  `scheme: 'file'`, so completion / hover / diagnostics / everything were silently dead in
+  **unsaved files, Remote-SSH, WSL, dev containers and virtual file systems**.
+- **False “invalid uniform type” errors.** `uniform Light key_light;` (struct), `uniform sampler3D`
+  and `uniform samplerCubeArray` were rejected even though Godot 4 accepts them.
+- **Read-only check missed single-line bodies.** `void light() { ALBEDO = vec3(1.0); }` reported
+  nothing while the multi-line form did; the scan now works per statement, not per line.
+- **CodeLens was wrong in two ways**: it put “0 references” on `fragment` / `vertex` / `light`
+  (never referenced — the engine calls them) and skipped every non-`void` function. It now covers
+  all file-level declarations and functions, and skips entry points.
+- **Completion popped up inside comments** (335 items from a comment line). Now suppressed,
+  including multi-line block comments; `#include "…"` path completion is unaffected.
+- **Rename allowed renaming `fragment` / `vertex` / `light` / `start` / `process`**, silently
+  breaking the shader. Now refused with an explanation, while variables named `light` still rename.
+- **Sidebar built phantom `group_uniforms` groups** from commented-out declarations, and dropped
+  plain global variables (`Light key_light;`) from the tree.
+- **Type definition / type hierarchy failed for variables declared inside an include.**
+- **`.gdshaderinc` accepted `Switch shader_type`**, inserting a `shader_type` into a fragment file.
+
+### Changed
+
+- `mix()` signature in hover / signature help / inlay hints now uses the GLSL names
+  `mix(x, y, a)` instead of the previous `a, b, t`.
+- Entry-point list (`vertex`, `fragment`, `light`, `start`, `process`, `sky`, `fog`) is defined once
+  in `shader-data` and shared by rename, CodeLens and inlay hints.
+- Pressing Enter after a preprocessor line keeps the current indentation instead of adding a level.
+- Pasting code no longer proposes an `#include` for built-ins such as `COLOR`, `UV` or `texture()`.
+
+### Docs
+
+- Removed the incorrect “`uniform int value;` is invalid” claim from both READMEs (Godot 4 supports
+  int uniforms); the example now uses `uniform double`, which really is invalid.
+
 ## [1.0.114] — 2026-10-21
 
 ### Changed

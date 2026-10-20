@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { getDocIndex } from '../symbol-index';
 import { getProjectSymbols } from '../include-graph';
+import { computeCodeOnlyLines } from '../utils';
 import { t } from '../i18n';
 
 export type OutlineNode =
@@ -81,7 +82,7 @@ export class GodotShaderTreeProvider implements vscode.TreeDataProvider<OutlineN
                 const item = new vscode.TreeItem(node.name, vscode.TreeItemCollapsibleState.None);
                 item.description = node.hint ? `${node.type} · ${node.hint}` : node.type;
                 item.tooltip = new vscode.MarkdownString(`\`${node.keyword} ${node.type} ${node.name}\``);
-                item.iconPath = new vscode.ThemeIcon(node.keyword === 'uniform' ? 'symbol-variable' : 'symbol-field');
+                item.iconPath = new vscode.ThemeIcon(iconForKeyword(node.keyword));
                 // 切换文件时可能出现"陈旧节点"，此时不给 command，避免拿不到 uri
                 if (this.document) item.command = revealCommand(this.document.uri, node.line, node.col);
                 return item;
@@ -120,7 +121,7 @@ export class GodotShaderTreeProvider implements vscode.TreeDataProvider<OutlineN
 
     private getSections(): OutlineNode[] {
         const index = this.document ? getDocIndex(this.document) : null;
-        const uniformCount = index ? index.vars.filter(v => v.keyword === 'uniform' || v.keyword === 'varying' || v.keyword === 'const').length : 0;
+        const uniformCount = index ? index.vars.filter(v => !v.funcName && v.keyword !== 'local' && v.keyword !== 'param').length : 0;
         const includes = this.document ? getProjectSymbols(this.document).includes.length : 0;
 
         return [
@@ -130,19 +131,24 @@ export class GodotShaderTreeProvider implements vscode.TreeDataProvider<OutlineN
         ];
     }
 
-    /** uniform 按 group_uniforms 分组，未分组的直接挂在根下 */
+    /** 文件级变量（uniform / varying / const / 普通全局对象）按 group_uniforms 分组，未分组的直接挂在根下 */
     private uniformTree(): OutlineNode[] {
         const document = this.document;
         if (!document) return [];
 
         const index = getDocIndex(document);
-        const vars = index.vars.filter(v => !v.funcName && (v.keyword === 'uniform' || v.keyword === 'varying' || v.keyword === 'const'));
+        const vars = index.vars.filter(v => !v.funcName && v.keyword !== 'local' && v.keyword !== 'param');
 
-        // 行号 → 所属分组
+        // 行号 → 所属分组（用抹掉注释/字符串的代码行判断，
+        // 否则 `// group_uniforms Old;` 这类注释会造出假分组）
+        const rawLines: string[] = [];
+        for (let i = 0; i < document.lineCount; i++) rawLines.push(document.lineAt(i).text);
+        const codeLines = computeCodeOnlyLines(rawLines);
+
         const groupAt = new Map<number, string>();
         let current: string | null = null;
-        for (let i = 0; i < document.lineCount; i++) {
-            const text = document.lineAt(i).text;
+        for (let i = 0; i < codeLines.length; i++) {
+            const text = codeLines[i];
             const open = /^\s*group_uniforms\s+([A-Za-z_]\w*)\s*;/.exec(text);
             if (open) { current = open[1]; continue; }
             if (/^\s*group_uniforms\s*;/.test(text)) { current = null; continue; }
@@ -218,4 +224,14 @@ function revealCommand(uri: vscode.Uri, line: number, character: number): vscode
         title: t('view.open'),
         arguments: [uri, line, character]
     };
+}
+
+/** 侧栏图标：按声明种类区分 */
+function iconForKeyword(keyword: string): string {
+    switch (keyword) {
+        case 'uniform': return 'symbol-variable';
+        case 'varying': return 'symbol-field';
+        case 'const': return 'symbol-constant';
+        default: return 'symbol-object';
+    }
 }

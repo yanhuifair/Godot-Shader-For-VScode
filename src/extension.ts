@@ -80,7 +80,10 @@ export function activate(context: vscode.ExtensionContext) {
     updateStatusBar();
 
     // Provider 注册辅助
-    const LANG = { language: 'godot-shader', scheme: 'file' } as const;
+    // 注意：不要加 scheme: 'file' —— 否则未保存文件（untitled）、远程 SSH / WSL / 容器
+    // （vscode-remote）、虚拟文件系统里全部语言功能都会静默失效。
+    // 需要文件系统的功能（include 解析）在各自内部按 document.uri.scheme 判断。
+    const LANG = { language: 'godot-shader' } as const;
     const push = (d: vscode.Disposable) => context.subscriptions.push(d);
 
     // 侧边栏视图（Uniforms / Includes / Workspace Shaders）
@@ -237,6 +240,12 @@ export function activate(context: vscode.ExtensionContext) {
     push(vscode.window.onDidChangeActiveTextEditor(e => syncActiveDocument(e?.document)));
     push(vscode.workspace.onDidCloseTextDocument(doc => {
         if (doc.languageId === 'godot-shader') syncActiveDocument(vscode.window.activeTextEditor?.document);
+    }));
+    // 保存后重算「被 include」装饰（编辑时重算太贵，保存一次足够）
+    push(vscode.workspace.onDidSaveTextDocument(doc => {
+        if (doc.languageId === 'godot-shader') {
+            decorationProvider.setActiveDocument(vscode.window.activeTextEditor?.document);
+        }
     }));
     syncActiveDocument(vscode.window.activeTextEditor?.document);
 

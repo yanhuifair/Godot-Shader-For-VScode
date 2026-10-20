@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
-import { GODOT_SHADER_FUNCTIONS, GODOT_SHADER_TYPES } from '../shader-data';
+import { GODOT_SHADER_FUNCTIONS, GODOT_SHADER_TYPES, GODOT_SHADER_ENTRY_POINTS } from '../shader-data';
 import { computeCodeOnlyLines } from '../utils';
 
 /** 类型名集合：构造函数 vec3(...) / float(...) 不是函数调用，不能显示参数名提示 */
@@ -195,7 +195,7 @@ export class GodotShaderInlayHintsProvider implements vscode.InlayHintsProvider 
             const paramsStr = match[4];
 
             // 跳过着色器入口函数（已有内置签名）
-            if (['vertex', 'fragment', 'light', 'sky', 'fog'].includes(funcName)) continue;
+            if (GODOT_SHADER_ENTRY_POINTS.has(funcName)) continue;
             if (GodotShaderInlayHintsProvider.funcParamMap.has(funcName)) continue;
             if (!paramsStr.trim()) continue;
 

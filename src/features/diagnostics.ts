@@ -5,7 +5,8 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import { GODOT_SHADER_BUILTINS, GODOT_SHADER_RENDER_MODES, GODOT_SHADER_HINTS, getVariableShaderTypes } from '../shader-data';
 import { t } from '../i18n';
-import { getProjectSourceFiles, resolveIncludeUri } from '../include-graph';
+import { getProjectSourceFiles, getProjectSymbols, resolveIncludeUri } from '../include-graph';
+import { getDocIndex } from '../symbol-index';
 import { computeCodeOnlyLines, isInCommentOrString, parseDeclaration } from '../utils';
 
 export class GodotShaderDiagnosticProvider {
@@ -441,6 +442,33 @@ export class GodotShaderDiagnosticProvider {
     }
 
     private checkVariableDeclarations(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        // Godot 4 允许的 uniform 基础类型（含 depth / array / 3D / cube array 采样器）
+        const validTypes = ['bool', 'bvec2', 'bvec3', 'bvec4', 'float', 'int', 'ivec2', 'ivec3', 'ivec4',
+                           'mat2', 'mat3', 'mat4',
+                           'sampler2D', 'sampler2DArray', 'sampler2DArrayDepth', 'sampler2DDepth',
+                           'sampler3D', 'samplerCube', 'samplerCubeArray', 'samplerExternalOES',
+                           'uint', 'uvec2', 'uvec3', 'uvec4',
+                           'vec2', 'vec3', 'vec4'];
+
+        // 本文件与 include 里声明的 struct 同样是合法 uniform 类型（`uniform Light key_light;`）
+        let structTypes: Set<string> | null = null;
+        const isStructType = (type: string): boolean => {
+            if (!structTypes) {
+                structTypes = new Set<string>();
+                try {
+                    for (const s of getDocIndex(document).structs) structTypes.add(s.name);
+                    for (const s of getProjectSymbols(document).structs) structTypes.add(s.sym.name);
+                    // 单行写法（struct X { ... };）不会进符号索引，这里按文本兜底
+                    for (const text of lines) {
+                        for (const m of text.matchAll(/\bstruct\s+([A-Za-z_]\w*)/g)) structTypes.add(m[1]);
+                    }
+                } catch {
+                    // 索引不可用时只按基础类型判断
+                }
+            }
+            return structTypes.has(type);
+        };
+
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
 
@@ -448,13 +476,8 @@ export class GodotShaderDiagnosticProvider {
             const decl = parseDeclaration(line);
             if (decl && decl.keyword === 'uniform') {
                 const type = decl.type;
-                const validTypes = ['bool', 'bvec2', 'bvec3', 'bvec4', 'float', 'int', 'ivec2', 'ivec3', 'ivec4',
-                                   'mat2', 'mat3', 'mat4',
-                                   'sampler2D', 'sampler2DArray', 'samplerCube', 'samplerExternalOES',
-                                   'uint', 'uvec2', 'uvec3', 'uvec4',
-                                   'vec2', 'vec3', 'vec4'];
-                
-                if (!validTypes.includes(type)) {
+
+                if (!validTypes.includes(type) && !isStructType(type)) {
                     diagnostics.push({
                         severity: vscode.DiagnosticSeverity.Error,
                         range: new vscode.Range(i, 0, i, lines[i].length),
@@ -795,7 +818,6 @@ export class GodotShaderDiagnosticProvider {
     private checkStencilReadPass(lines: string[], diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
         let stencilReads = false;
         let stencilLine = -1;
-        let renderModeLine = -1;
         let renderModes: string[] = [];
 
         for (let i = 0; i < lines.length; i++) {
@@ -814,7 +836,6 @@ export class GodotShaderDiagnosticProvider {
             // 检测 render_mode 声明
             const renderMatch = line.match(/^render_mode\s+(.+);/);
             if (renderMatch) {
-                renderModeLine = i;
                 renderModes = renderMatch[1].split(',').map(m => m.trim());
             }
         }
@@ -864,7 +885,6 @@ export class GodotShaderDiagnosticProvider {
             const decimalRegex = /\b\d+\.?\d*(?:[eE][+-]?\d+)?[fFuU]?\b/g;          // 十进制浮点/整数
             const hexRegex = /\b0[xX][0-9a-fA-F]*(?:\.[0-9a-fA-F]*)?(?:[pP][+-]?[0-9]+)?[fFuU]?\b/g; // 十六进制浮点/整数
             const dotRegex = /\B\.\d[\d]*(?:[eE][+-]?\d+)?[fFuU]?\b/g;              // .5 / .5e3 / .5f 等
-            let match: RegExpExecArray | null;
 
             const testToken = (re: RegExp) => {
                 re.lastIndex = 0;
@@ -1018,9 +1038,8 @@ export class GodotShaderDiagnosticProvider {
                 // 使用词边界匹配
                 const escaped = decl.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                 const regex = new RegExp('\\b' + escaped + '\\b', 'g');
-                let match: RegExpExecArray | null;
 
-                while ((match = regex.exec(text)) !== null) {
+                while (regex.exec(text) !== null) {
                     refCount++;
                 }
             }
@@ -1356,6 +1375,10 @@ export class GodotShaderDiagnosticProvider {
             if (/^(void\s+)?fragment\s*\(/.test(trimmed)) inFragment = true;
             if (/^(void\s+)?light\s*\(/.test(trimmed)) inLight = true;
 
+            // 本行所属的着色器函数（单行函数体 `void light() { ALBEDO = …; }`
+            // 会在下面的括号统计里立刻归零，所以必须在统计前记下来）
+            const lineVertex = inVertex, lineFragment = inFragment, lineLight = inLight;
+
             for (const ch of (this.codeLines[i] ?? line)) {
                 if (ch === '{') braceDepth++;
                 else if (ch === '}') {
@@ -1366,21 +1389,26 @@ export class GodotShaderDiagnosticProvider {
                 }
             }
 
-            if (braceDepth <= 0) continue;
+            if (!lineVertex && !lineFragment && !lineLight) continue;
 
-            // 检查赋值: BUILTIN = ... 或 BUILTIN += ... 等形式
-            const assignMatch = trimmed.match(/^(\w+)\s*(\+|\-|\*|\/)?=\s*/);
-            if (!assignMatch) continue;
+            // 同一行可能有多个赋值（`void light() { ALBEDO = vec3(1.0); }`），逐个匹配
+            const code = this.codeLines[i] ?? line;
+            const assigned = new Set<string>();
+            const assignRe = /\b([A-Z][A-Z0-9_]*)\s*(?:\+|-|\*|\/|%|\||&|\^|\|\||&&|<<|>>)?=(?!=)/g;
+            let am: RegExpExecArray | null;
+            while ((am = assignRe.exec(code)) !== null) {
+                const name = am[1];
+                if (assigned.has(name)) continue;
 
-            const name = assignMatch[1];
-            let readonlySet: Set<string> | null = null;
-            let context = '';
-            if (inVertex && readonlyInVertex.has(name)) { readonlySet = readonlyInVertex; context = 'vertex()'; }
-            if (inFragment && readonlyInFragment.has(name)) { readonlySet = readonlyInFragment; context = 'fragment()'; }
-            if (inLight && readonlyInLight.has(name)) { readonlySet = readonlyInLight; context = 'light()'; }
+                let readonlySet: Set<string> | null = null;
+                let context = '';
+                if (lineVertex && readonlyInVertex.has(name)) { readonlySet = readonlyInVertex; context = 'vertex()'; }
+                if (lineFragment && readonlyInFragment.has(name)) { readonlySet = readonlyInFragment; context = 'fragment()'; }
+                if (lineLight && readonlyInLight.has(name)) { readonlySet = readonlyInLight; context = 'light()'; }
+                if (!readonlySet) continue;
 
-            if (readonlySet) {
-                const col = line.indexOf(name);
+                assigned.add(name);
+                const col = Math.max(0, code.indexOf(name));
                 diagnostics.push({
                     severity: vscode.DiagnosticSeverity.Error,
                     range: new vscode.Range(i, col, i, col + name.length),
