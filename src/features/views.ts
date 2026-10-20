@@ -82,7 +82,8 @@ export class GodotShaderTreeProvider implements vscode.TreeDataProvider<OutlineN
                 item.description = node.hint ? `${node.type} · ${node.hint}` : node.type;
                 item.tooltip = new vscode.MarkdownString(`\`${node.keyword} ${node.type} ${node.name}\``);
                 item.iconPath = new vscode.ThemeIcon(node.keyword === 'uniform' ? 'symbol-variable' : 'symbol-field');
-                item.command = revealCommand(this.document!.uri, node.line, node.col);
+                // 切换文件时可能出现"陈旧节点"，此时不给 command，避免拿不到 uri
+                if (this.document) item.command = revealCommand(this.document.uri, node.line, node.col);
                 return item;
             }
             case 'include': {

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0
 
 import * as vscode from 'vscode';
-import { getProjectSymbols, resolveIncludeUri } from '../include-graph';
+import { getProjectSymbols } from '../include-graph';
 import { buildIncludeBlockInsertion, getWorkspaceIncludeSymbols, toIncludePath } from '../workspace-includes';
 import { GODOT_SHADER_KEYWORDS, GODOT_SHADER_TYPES } from '../shader-data';
 import { t } from '../i18n';
@@ -178,9 +178,3 @@ export class GodotShaderDropEditProvider implements vscode.DocumentDropEditProvi
     }
 }
 
-/** 供 include 缺失的快速修复复用：判断路径是否已被 include */
-export function isIncludeReachable(document: vscode.TextDocument, includePath: string): boolean {
-    const target = resolveIncludeUri(document.uri, includePath);
-    if (!target) return false;
-    return getProjectSymbols(document).includes.some(inc => inc.uri.toString() === target.toString());
-}
