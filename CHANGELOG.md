@@ -4,6 +4,15 @@ All notable changes to **Godot Shader for VS Code** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.113] — 2026-10-21
+
+### Added
+
+- **Remaining quick fixes** — remove an unused `uniform`/`varying` declaration, rename deprecated
+  functions (`atan2` → `atan`, `dfdx` → `dFdx`), and create a missing `#include` file.
+- **Organize Includes** — `Source Action… → Organize Includes` sorts and de-duplicates a contiguous
+  `#include` block.
+
 ## [1.0.112] — 2026-10-21
 
 ### Added

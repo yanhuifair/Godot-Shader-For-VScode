@@ -115,7 +115,7 @@ export function activate(context: vscode.ExtensionContext) {
     // 快速修复
     push(vscode.languages.registerCodeActionsProvider(LANG,
         new GodotShaderCodeActionProvider(),
-        { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.SourceFixAll] }));
+        { providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.SourceFixAll, vscode.CodeActionKind.SourceOrganizeImports] }));
 
     // 代码折叠
     push(vscode.languages.registerFoldingRangeProvider(LANG, new GodotShaderFoldingRangeProvider()));

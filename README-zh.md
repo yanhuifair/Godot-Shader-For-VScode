@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.112-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.113-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -325,10 +325,15 @@ vec3 col = vec3(1.0)          // 快速修复：补 ;
 render_mode unshaded;         // 快速修复：补 shader_type canvas_item;
 void fragment() { …          // 快速修复：补上缺少的 }
 }                             // 快速修复：删除多余的 }
+uniform float unused;         // 快速修复：删除未使用的声明
+atan2(1.0, 2.0)               // 快速修复：改为 atan
+#include "missing.gdshaderinc" // 快速修复：创建缺失的 include 文件
 ```
 
 所有可自动修复的诊断也可以一次修完：**Source Action… → Fix All**，或设置
 `"editor.codeActionsOnSave": { "source.fixAll": "explicit" }`。
+
+**Source Action… → Organize Includes** 会对连续的 `#include` 块排序并去重。
 
 ### 代码片段
 
@@ -337,9 +342,6 @@ void fragment() { …          // 快速修复：补上缺少的 }
 | 前缀 | 插入内容 |
 |------|----------|
 | `shader-{canvas,spatial,sky,fog,particles}` | 最简着色器模板 |
-
-所有可自动修复的诊断也可以一次修完：**Source Action… → Fix All**，或设置
-`"editor.codeActionsOnSave": { "source.fixAll": "explicit" }`。
 | `shader-{canvas,spatial}-full` | 含全部段落的模板 |
 | `func-{vertex,fragment,light}`、`sky-func`、`fog-func` | 入口函数骨架 |
 | `uniform`、`uniform-{range,color,texture,filter}` | uniform 声明 |
