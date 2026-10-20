@@ -3,9 +3,9 @@
 
 import * as vscode from 'vscode';
 import * as fs from 'fs';
-import * as path from 'path';
 import { GODOT_SHADER_BUILTINS, GODOT_SHADER_RENDER_MODES, GODOT_SHADER_HINTS, getVariableShaderTypes } from '../shader-data';
 import { t } from '../i18n';
+import { getProjectSourceFiles, resolveIncludeUri } from '../include-graph';
 import { computeCodeOnlyLines, isInCommentOrString, parseDeclaration } from '../utils';
 
 export class GodotShaderDiagnosticProvider {
@@ -213,18 +213,12 @@ export class GodotShaderDiagnosticProvider {
             if (!m) continue;
 
             const includePath = m[1];
-            let target = '';
-
-            if (includePath.startsWith('res://')) {
-                const folders = vscode.workspace.workspaceFolders;
-                if (!folders || folders.length === 0) continue;
-                target = path.join(folders[0].uri.fsPath, includePath.substring('res://'.length));
-            } else {
-                target = path.join(path.dirname(document.uri.fsPath), includePath);
-            }
+            // 与跳转/链接共用同一套路径解析（res:// → 工作区根，其他 → 当前文件目录）
+            const targetUri = resolveIncludeUri(document.uri, includePath);
+            if (!targetUri || targetUri.scheme !== 'file') continue;
 
             try {
-                if (!fs.existsSync(target)) {
+                if (!fs.existsSync(targetUri.fsPath)) {
                     const idx = lines[i].indexOf(includePath);
                     diagnostics.push({
                         severity: vscode.DiagnosticSeverity.Warning,
@@ -994,6 +988,12 @@ export class GodotShaderDiagnosticProvider {
 
         if (decls.length === 0) return;
 
+        // 引用来源：当前文件 + 所有 #include 进来的文件
+        // （被 include 的 helper 里可能用到当前文件的 uniform，只看当前文件会误报"未使用"）
+        const includeCodeLines: string[][] = getProjectSourceFiles(document)
+            .slice(1)
+            .map(f => computeCodeOnlyLines(f.lines));
+
         // 对每个声明，在声明行之外搜索引用（排除注释和字符串内的引用）
         for (const decl of decls) {
             let refCount = 0;
@@ -1010,6 +1010,16 @@ export class GodotShaderDiagnosticProvider {
 
                 while ((match = regex.exec(text)) !== null) {
                     refCount++;
+                }
+            }
+
+            // include 文件里的使用也算
+            const escapedName = decl.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const incRegex = new RegExp('\\b' + escapedName + '\\b');
+            for (const codeLinesOfInc of includeCodeLines) {
+                if (codeLinesOfInc.some(l => incRegex.test(l))) {
+                    refCount++;
+                    break;
                 }
             }
 

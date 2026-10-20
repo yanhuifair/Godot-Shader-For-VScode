@@ -3,6 +3,7 @@
 
 import * as vscode from 'vscode';
 import { t } from '../i18n';
+import { resolveIncludeUri } from '../include-graph';
 
 /**
  * DocumentLinkProvider — 让 #include "path" 可点击跳转
@@ -24,15 +25,8 @@ export class GodotShaderDocumentLinkProvider implements vscode.DocumentLinkProvi
             while ((match = includeRegex.exec(text)) !== null) {
                 const includePath = match[1];
                 // 相对路径按当前文档目录解析；res:// 指向项目根（工作区根目录）
-                let targetUri: vscode.Uri;
-                if (includePath.startsWith('res://')) {
-                    const folders = vscode.workspace.workspaceFolders;
-                    if (!folders || folders.length === 0) continue;
-                    targetUri = vscode.Uri.joinPath(folders[0].uri, includePath.substring('res://'.length));
-                } else {
-                    const currentDir = vscode.Uri.joinPath(document.uri, '..');
-                    targetUri = vscode.Uri.joinPath(currentDir, includePath);
-                }
+                const targetUri = resolveIncludeUri(document.uri, includePath);
+                if (!targetUri) continue;
 
                 const range = new vscode.Range(
                     i, match.index + match[0].indexOf('"') + 1,

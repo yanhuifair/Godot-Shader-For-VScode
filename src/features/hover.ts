@@ -19,6 +19,7 @@ import {
 import { t, td, getLang } from '../i18n';
 import { getShaderType } from '../utils';
 import { getDocIndex, DocIndex, dropDocIndex } from '../symbol-index';
+import { getProjectSymbols, IncludeFile } from '../include-graph';
 
 // 预构建内置变量 name→entry 映射（O(1) 查找）
 const BUILTIN_MAP: Map<string, { name: string; type: string; description: string }> = new Map();
@@ -386,10 +387,19 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
         
         // 文档符号索引（缓存，随 document.version 失效）
         const docIndex = getDocIndex(document);
+        // 当前文件 + 所有 #include 进来的文件的符号
+        const project = getProjectSymbols(document);
+
+        // struct 与字段：本地优先，其次来自 include 的文件
+        const structList: Array<{ sym: (typeof docIndex.structs)[number]; origin: IncludeFile | null }> = [
+            ...docIndex.structs.map(s => ({ sym: s, origin: null })),
+            ...project.structs.filter(e => e.origin).map(e => ({ sym: e.sym, origin: e.origin }))
+        ];
 
         // 查找 struct 类型
-        const struct = docIndex.structs.find(s => s.name === word);
-        if (struct) {
+        const structEntry = structList.find(e => e.sym.name === word);
+        if (structEntry) {
+            const struct = structEntry.sym;
             const markdown = new vscode.MarkdownString();
             markdown.appendMarkdown(`## struct ${struct.name}\n\n`);
             markdown.appendMarkdown('```glsl\nstruct ' + struct.name + ' {\n');
@@ -401,25 +411,36 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
             if (used.length > 0) {
                 markdown.appendMarkdown(`**${t('hover.used_by')}:** ${used.map(u => '`' + u + '`').join(', ')}`);
             }
+            if (structEntry.origin) {
+                markdown.appendMarkdown(`\n\n> ${t('hover.from_file', structEntry.origin.label)}`);
+            }
             return new vscode.Hover(markdown, range);
         }
 
         // 查找 struct 字段（形如 `light.dir`）
         if (new RegExp('\\.\\s*' + word + '\\b').test(lineText)) {
-            for (const s of docIndex.structs) {
-                const field = s.fields.find(f => f.name === word);
+            for (const e of structList) {
+                const field = e.sym.fields.find(f => f.name === word);
                 if (field) {
                     const markdown = new vscode.MarkdownString();
-                    markdown.appendMarkdown(`## ${s.name}.${field.name}\n\n`);
+                    markdown.appendMarkdown(`## ${e.sym.name}.${field.name}\n\n`);
                     markdown.appendMarkdown(`**${t('type_label')}:** \`${field.type}\``);
+                    if (e.origin) {
+                        markdown.appendMarkdown(`\n\n> ${t('hover.from_file', e.origin.label)}`);
+                    }
                     return new vscode.Hover(markdown, range);
                 }
             }
         }
 
-        // 查找用户自定义函数（优先于内置同名函数，便于查看自己的签名与注释说明）
-        const userFunc = docIndex.funcs.find(f => f.name === word);
-        if (userFunc) {
+        // 用户自定义函数：本地优先，其次来自 include
+        const funcList: Array<{ sym: (typeof docIndex.funcs)[number]; origin: IncludeFile | null }> = [
+            ...docIndex.funcs.map(f => ({ sym: f, origin: null })),
+            ...project.funcs.filter(e => e.origin).map(e => ({ sym: e.sym, origin: e.origin }))
+        ];
+        const userFuncEntry = funcList.find(e => e.sym.name === word);
+        if (userFuncEntry) {
+            const userFunc = userFuncEntry.sym;
             const markdown = new vscode.MarkdownString();
             const sig = `${userFunc.returnType} ${userFunc.name}(${userFunc.params.map(p => `${p.type} ${p.name}`.trim()).join(', ')})`;
             markdown.appendMarkdown(`## ${userFunc.name}()\n\n`);
@@ -433,6 +454,9 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
             }
             if (userFunc.doc) {
                 markdown.appendMarkdown(`---\n\n${userFunc.doc}`);
+            }
+            if (userFuncEntry.origin) {
+                markdown.appendMarkdown(`\n\n> ${t('hover.from_file', userFuncEntry.origin.label)}`);
             }
             return new vscode.Hover(markdown, range);
         }
@@ -473,6 +497,20 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
             if (userVar.keyword === 'uniform') {
                 markdown.appendMarkdown(`\n\n> ${t('hover.inspector_hint')}`);
             }
+            return new vscode.Hover(markdown, range);
+        }
+
+        // 来自 #include 文件的变量（uniform / varying / const / 全局对象）
+        const incVar = project.vars.find(e => e.origin && e.sym.name === word);
+        if (incVar) {
+            const v = incVar.sym;
+            const markdown = new vscode.MarkdownString();
+            markdown.appendMarkdown(`## ${v.name}\n\n`);
+            markdown.appendMarkdown(`\`${v.keyword} ${v.type} ${v.name}\`\n\n`);
+            if (v.hint) {
+                markdown.appendMarkdown(`**${t('hover.hint')}:** \`${v.hint}\`\n\n`);
+            }
+            markdown.appendMarkdown(`> ${t('hover.from_file', incVar.origin!.label)}`);
             return new vscode.Hover(markdown, range);
         }
         

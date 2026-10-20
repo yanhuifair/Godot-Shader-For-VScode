@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { GODOT_SHADER_FUNCTIONS } from '../shader-data';
 import { getDocIndex } from '../symbol-index';
+import { getProjectSymbols } from '../include-graph';
 
 // 预构建函数名 → 数据映射（O(1) 查找）
 const FUNC_MAP: Map<string, { name: string; signature: string; description: string }> = new Map();
@@ -29,7 +30,9 @@ export class GodotShaderSignatureHelpProvider implements vscode.SignatureHelpPro
         help.activeParameter = activeParameter;
 
         // 1) 文档内的用户自定义函数（优先，允许覆盖内置同名）
-        const userFunc = getDocIndex(document).funcs.find(f => f.name === funcName);
+        const userFunc = getDocIndex(document).funcs.find(f => f.name === funcName)
+            // 其次到 #include 进来的文件里找（跨文件签名）
+            || getProjectSymbols(document).funcs.find(e => e.origin && e.sym.name === funcName)?.sym;
         if (userFunc) {
             const label = `${userFunc.returnType} ${userFunc.name}(${userFunc.params.map(p => `${p.type} ${p.name}`.trim()).join(', ')})`;
             const info = new vscode.SignatureInformation(label, userFunc.doc || undefined);

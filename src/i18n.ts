@@ -187,8 +187,10 @@ zh['hover.hint'] = '提示';
 en['hover.hint'] = 'Hint';
 zh['hover.inspector_hint'] = '可在检查器（Inspector）中编辑该参数';
 zh['hover.used_by'] = '用于';
+zh['hover.from_file'] = '来自 {0}';
 zh['link.open_include'] = '打开 {0}';
 en['hover.used_by'] = 'Used by';
+en['hover.from_file'] = 'from {0}';
 en['link.open_include'] = 'Open {0}';
 en['hover.inspector_hint'] = 'Editable in the Inspector';
 

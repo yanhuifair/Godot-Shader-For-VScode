@@ -20,6 +20,7 @@ import {
 import { t, getLanguage, td, getLang } from '../i18n';
 import { getShaderType } from '../utils';
 import { getDocIndex, getLocalSymbols, getGlobalSymbols } from '../symbol-index';
+import { getProjectSymbols } from '../include-graph';
 
 // 语言感知的补全缓存（避免每次补全都重建 300+ 个 CompletionItem）
 let cachedAllCompletions: { lang: string; items: vscode.CompletionItem[] } | null = null;
@@ -310,7 +311,8 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
 
         // struct 字段
         if (type) {
-            const struct = getDocIndex(document).structs.find(s => s.name === type);
+            const struct = getDocIndex(document).structs.find(s => s.name === type)
+                || getProjectSymbols(document).structs.find(e => e.sym.name === type)?.sym;
             if (struct) {
                 return struct.fields.map((f, i) => {
                     const item = new vscode.CompletionItem(f.name, vscode.CompletionItemKind.Field);
@@ -425,6 +427,51 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
             items.push(item);
         }
 
+        // ── #include 进来的文件里的符号（跨文件解析） ──
+        const project = getProjectSymbols(document);
+        const originDoc = (label: string) => new vscode.MarkdownString(`> from \`${label}\``);
+
+        for (const e of project.vars) {
+            if (!e.origin || seen.has(e.sym.name)) continue;
+            seen.add(e.sym.name);
+            const v = e.sym;
+            const kind = v.keyword === 'uniform' ? vscode.CompletionItemKind.Property
+                : v.keyword === 'const' ? vscode.CompletionItemKind.Constant
+                : vscode.CompletionItemKind.Variable;
+            const item = new vscode.CompletionItem(v.name, kind);
+            item.detail = `${v.keyword} ${v.type} · ${e.origin.label}`;
+            item.documentation = new vscode.MarkdownString(`\`${v.keyword} ${v.type} ${v.name}\`${v.hint ? '\n\n**hint:** `' + v.hint + '`' : ''}\n\n> from \`${e.origin.label}\``);
+            item.sortText = '05' + v.name;
+            items.push(item);
+        }
+
+        for (const e of project.structs) {
+            if (!e.origin || seen.has(e.sym.name)) continue;
+            seen.add(e.sym.name);
+            const s = e.sym;
+            const item = new vscode.CompletionItem(s.name, vscode.CompletionItemKind.Struct);
+            item.detail = `struct — ${s.fields.length} fields · ${e.origin.label}`;
+            item.documentation = originDoc(e.origin.label);
+            item.sortText = '05' + s.name;
+            items.push(item);
+        }
+
+        for (const e of project.funcs) {
+            if (!e.origin || seen.has(e.sym.name)) continue;
+            seen.add(e.sym.name);
+            const f = e.sym;
+            const item = new vscode.CompletionItem(f.name, vscode.CompletionItemKind.Function);
+            item.detail = `${f.returnType} ${f.name}(${f.params.map(p => `${p.type} ${p.name}`.trim()).join(', ')}) · ${e.origin.label}`;
+            item.documentation = new vscode.MarkdownString(`${f.doc ? f.doc + '\n\n' : ''}> from \`${e.origin.label}\``);
+            item.insertText = new vscode.SnippetString(
+                f.params.length > 0
+                    ? `${f.name}(\${1:${f.params[0].name}}${f.params.slice(1).map((p, i) => `, \${${i + 2}:${p.name}}`).join('')})`
+                    : `${f.name}()`
+            );
+            item.sortText = '05' + f.name;
+            items.push(item);
+        }
+
         return items;
     }
 
@@ -467,6 +514,10 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
         const local = vars.find(v => v.keyword === 'local' || v.keyword === 'param');
         if (local) return local.type;
         if (vars.length > 0) return vars[0].type;
+
+        // 其次来自 #include 的文件（uniform / 全局对象 / 参数）
+        const inc = getProjectSymbols(document).vars.find(e => e.origin && e.sym.name === name);
+        if (inc) return inc.sym.type;
 
         return null;
     }

@@ -4,7 +4,7 @@
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.108-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.109-2ea44f)
 ![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
@@ -72,6 +72,28 @@ my_uniform                              // ← your own uniforms / functions / s
 The completion list also contains **every symbol declared in the current file**: uniforms, varyings,
 constants, structs, functions (inserted with their parameters) and the locals/parameters of the
 function you are typing in.
+
+#### Cross-file Support (`#include`)
+
+Symbols declared in `.gdshaderinc` files — including transitive includes — are resolved across the
+whole include graph. Completion, hover (which also names the source file), signature help,
+go-to-definition, find-references and rename all work through `#include`; include cycles are
+detected and missing includes are reported as warnings.
+
+```glsl
+// common.gdshaderinc
+uniform vec4 shared_tint : source_color;
+float ripple_at(vec2 p, float freq) { … }
+```
+
+```glsl
+// main.gdshader
+#include "common.gdshaderinc"
+
+void fragment() {
+    COLOR = shared_tint * ripple_at(UV, 10.0);  // both come from the include
+}
+```
 
 #### Hover Documentation
 
@@ -195,9 +217,9 @@ void fragment()
 
 | Action | Shortcut | Example |
 |--------|----------|---------|
-| Go to Definition | `F12` | `uniform float x` → jumps to declaration; calls → definitions; locals → the nearest declaration; params → the parameter list |
-| Find References | `Shift+F12` | Shows all usages of a symbol (locals are scoped to their function) |
-| Rename | `F2` | Rename all occurrences at once (local variables stay inside their function) |
+| Go to Definition | `F12` | `uniform float x` → jumps to declaration (also into `.gdshaderinc`); calls → definitions; locals → the nearest declaration; params → the parameter list |
+| Find References | `Shift+F12` | Shows all usages of a symbol (locals are scoped to their function, `#include` symbols are searched across files) |
+| Rename | `F2` | Rename all occurrences at once, including the declaration inside the included file |
 | Workspace Symbols | `Ctrl+T` | Search uniforms/functions across all `.gdshader` files |
 | Document Links | Ctrl+Click | `#include "common.gdshaderinc"` → opens the file |
 | Selection Range | `Alt+Shift+→` | `word` → `line` → `{ block }` → `void f() {…}` → full doc |

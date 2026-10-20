@@ -22,6 +22,7 @@ import { GodotShaderCodeLensProvider } from './features/code-lens';
 import { GodotShaderDocumentLinkProvider } from './features/document-links';
 import { GodotShaderSelectionRangeProvider } from './features/selection-range';
 import { t } from './i18n';
+import { invalidateIncludeCache } from './include-graph';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Godot Shader extension is now active!');
@@ -57,11 +58,15 @@ export function activate(context: vscode.ExtensionContext) {
     const LANG = { language: 'godot-shader', scheme: 'file' } as const;
     const push = (d: vscode.Disposable) => context.subscriptions.push(d);
 
-    // 监听 .gdshader 文件变化以失效工作区符号缓存
-    const watcher = vscode.workspace.createFileSystemWatcher('**/*.gdshader');
-    watcher.onDidChange(() => GodotShaderWorkspaceSymbolProvider.invalidateCache());
-    watcher.onDidCreate(() => GodotShaderWorkspaceSymbolProvider.invalidateCache());
-    watcher.onDidDelete(() => GodotShaderWorkspaceSymbolProvider.invalidateCache());
+    // 监听 .gdshader / .gdshaderinc 文件变化以失效缓存（工作区符号 + 跨文件符号）
+    const watcher = vscode.workspace.createFileSystemWatcher('**/*.{gdshader,gdshaderinc}');
+    const invalidateCaches = () => {
+        GodotShaderWorkspaceSymbolProvider.invalidateCache();
+        invalidateIncludeCache();
+    };
+    watcher.onDidChange(invalidateCaches);
+    watcher.onDidCreate(invalidateCaches);
+    watcher.onDidDelete(invalidateCaches);
     push(watcher);
 
     // 代码补全

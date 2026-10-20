@@ -4,7 +4,7 @@
 <div align="center">
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.108-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.109-2ea44f)
 ![Lang](https://img.shields.io/badge/language-zh%2Fen-ff9800)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
@@ -71,6 +71,27 @@ my_uniform                              // ← 自己声明的 uniform / 函数 
 
 补全列表里同时包含**当前文件声明的所有符号**：uniform、varying、const、struct、函数（带参数占位），
 以及光标所在函数的局部变量与参数。
+
+#### 跨文件支持（`#include`）
+
+`.gdshaderinc` 里声明的符号（含传递 include）会在整个 include 图里解析：
+补全、悬停（同时标注来源文件）、签名帮助、跳转定义、查找引用、重命名都能跨文件工作；
+循环 include 会终止，缺失的 include 会作为警告报出。
+
+```glsl
+// common.gdshaderinc
+uniform vec4 shared_tint : source_color;
+float ripple_at(vec2 p, float freq) { … }
+```
+
+```glsl
+// main.gdshader
+#include "common.gdshaderinc"
+
+void fragment() {
+    COLOR = shared_tint * ripple_at(UV, 10.0);  // 两个符号都来自 include
+}
+```
 
 #### 悬停文档
 

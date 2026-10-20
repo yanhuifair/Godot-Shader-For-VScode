@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { GODOT_SHADER_KEYWORD_SET, GODOT_SHADER_GLSL_BUILTIN_SET, GODOT_SHADER_BUILTIN_NAME_SET } from '../shader-data';
 import { computeCodeOnlyLines, escapeRegExp, getSymbolScope } from '../utils';
+import { findInIncludes, getProjectSourceFiles, getProjectSymbols } from '../include-graph';
 
 export class GodotShaderRenameProvider implements vscode.RenameProvider {
 
@@ -48,16 +49,33 @@ export class GodotShaderRenameProvider implements vscode.RenameProvider {
 
         const targetWord = document.getText(wordRange);
         const edit = new vscode.WorkspaceEdit();
-
-        const lines: string[] = [];
-        for (let i = 0; i < document.lineCount; i++) {
-            lines.push(document.lineAt(i).text);
-        }
-        const codeLines = computeCodeOnlyLines(lines);
-        // 局部变量（函数参数 / 函数体内声明）只在所属函数范围内重命名，
-        // 否则另一个函数里的同名变量会被一起改掉
-        const scope = getSymbolScope(codeLines, position.line, targetWord);
         const wordRegex = new RegExp('\\b' + escapeRegExp(targetWord) + '\\b', 'g');
+
+        const currentLines: string[] = [];
+        for (let i = 0; i < document.lineCount; i++) currentLines.push(document.lineAt(i).text);
+
+        const project = getProjectSymbols(document);
+
+        // 声明在 include 文件里 → 连同该 include 文件一起重命名（否则声明处会留在旧名字）
+        if (findInIncludes(project, n => n === targetWord)) {
+            for (const file of getProjectSourceFiles(document)) {
+                const codeLines = computeCodeOnlyLines(file.lines);
+                for (let i = 0; i < codeLines.length; i++) {
+                    const text = codeLines[i];
+                    if (!text) continue;
+                    wordRegex.lastIndex = 0;
+                    let match: RegExpExecArray | null;
+                    while ((match = wordRegex.exec(text)) !== null) {
+                        edit.replace(file.uri, new vscode.Range(i, match.index, i, match.index + targetWord.length), newName);
+                    }
+                }
+            }
+            return edit;
+        }
+
+        // 局部变量（函数参数 / 函数体内声明）只在所属函数范围内重命名
+        const codeLines = computeCodeOnlyLines(currentLines);
+        const scope = getSymbolScope(codeLines, position.line, targetWord);
 
         for (let i = scope.start; i <= scope.end && i < codeLines.length; i++) {
             const text = codeLines[i];

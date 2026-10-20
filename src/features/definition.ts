@@ -3,6 +3,7 @@
 
 import * as vscode from 'vscode';
 import { getDocIndex } from '../symbol-index';
+import { getProjectSymbols, resolveIncludeUri } from '../include-graph';
 
 export class GodotShaderDefinitionProvider implements vscode.DefinitionProvider {
 
@@ -18,16 +19,8 @@ export class GodotShaderDefinitionProvider implements vscode.DefinitionProvider 
             const quoteStart = lineText.indexOf('"');
             const quoteEnd = lineText.lastIndexOf('"');
             if (position.character > quoteStart && position.character < quoteEnd) {
-                const includePath = includeMatch[1];
-                // Godot 的 res:// 指向项目根（工作区根目录），不能按"当前文件目录 + res://..."拼接
-                if (includePath.startsWith('res://')) {
-                    const folders = vscode.workspace.workspaceFolders;
-                    if (!folders || folders.length === 0) return null;
-                    const target = vscode.Uri.joinPath(folders[0].uri, includePath.substring('res://'.length));
-                    return new vscode.Location(target, new vscode.Position(0, 0));
-                }
-                const currentDir = vscode.Uri.joinPath(document.uri, '..');
-                const targetUri = vscode.Uri.joinPath(currentDir, includePath);
+                const targetUri = resolveIncludeUri(document.uri, includeMatch[1]);
+                if (!targetUri) return null;
                 return new vscode.Location(targetUri, new vscode.Position(0, 0));
             }
         }
@@ -60,7 +53,21 @@ export class GodotShaderDefinitionProvider implements vscode.DefinitionProvider 
             }
         }
 
-        if (candidates.length === 0) return null;
+        if (candidates.length === 0) {
+            // 阶段 2b: 当前文件没有 → 到 #include 进来的文件里找（跨文件跳转）
+            const project = getProjectSymbols(document);
+            const fromInclude =
+                project.vars.find(e => e.origin && e.sym.name === word) ||
+                project.funcs.find(e => e.origin && e.sym.name === word) ||
+                project.structs.find(e => e.origin && e.sym.name === word);
+            if (fromInclude && fromInclude.origin) {
+                return new vscode.Location(
+                    fromInclude.origin.uri,
+                    new vscode.Range(fromInclude.sym.line, fromInclude.col, fromInclude.sym.line, fromInclude.col + word.length)
+                );
+            }
+            return null;
+        }
 
         // 阶段 2: 就近原则（同名符号可能出现在不同函数/struct 里）
         const before = candidates.filter(c => c.line <= position.line).sort((a, b) => b.line - a.line);
