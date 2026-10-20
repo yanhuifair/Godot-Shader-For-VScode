@@ -2,7 +2,7 @@
 	"name": "godot-shader-for-vscode",
 	"displayName": "Godot Shader For VSCode",
 	"description": "The best Godot Shader development extension. 最佳的 Godot Shader 开发插件。",
-	"version": "1.0.113",
+	"version": "1.0.114",
 	"license": "AGPL-3.0",
 	"publisher": "FairYan",
 	"icon": "images/logo.png",
@@ -26,7 +26,7 @@
 		"godotengine"
 	],
 	"engines": {
-		"vscode": "^1.85.0"
+		"vscode": "^1.100.0"
 	},
 	"categories": [
 		"Programming Languages",
@@ -122,6 +122,16 @@
 					"type": "boolean",
 					"default": false,
 					"description": "Log #include resolution to the Godot Shader output panel / 在输出面板打印 #include 解析过程（排查用）"
+				},
+				"godot-shader.paste.autoInclude": {
+					"type": "boolean",
+					"default": true,
+					"description": "%config.paste.autoInclude%"
+				},
+				"godot-shader.inlineCompletions.enabled": {
+					"type": "boolean",
+					"default": true,
+					"description": "%config.inlineCompletions%"
 				}
 			}
 		},
@@ -155,6 +165,17 @@
 				"title": "%cmd.reloadSymbols%",
 				"category": "Godot Shader",
 				"icon": "$(refresh)"
+			},
+			{
+				"command": "godotShader.refreshTree",
+				"title": "%cmd.refreshTree%",
+				"category": "Godot Shader",
+				"icon": "$(refresh)"
+			},
+			{
+				"command": "godotShader.revealLocation",
+				"title": "%cmd.revealLocation%",
+				"category": "Godot Shader"
 			}
 		],
 		"menus": {
@@ -194,7 +215,22 @@
 					"when": "editorLangId == godot-shader"
 				},
 				{
+					"command": "godotShader.refreshTree",
+					"when": "view == godotShaderOutline"
+				},
+				{
+					"command": "godotShader.revealLocation",
+					"when": "false"
+				},
+				{
 					"command": "godotShader.reloadSymbols"
+				}
+			],
+			"view/title": [
+				{
+					"command": "godotShader.refreshTree",
+					"when": "view == godotShaderOutline",
+					"group": "navigation"
 				}
 			]
 		},
@@ -254,11 +290,91 @@
 					"strings": false
 				}
 			}
-		}
+		},
+		"viewsContainers": {
+			"activitybar": [
+				{
+					"id": "godot-shader-explorer",
+					"title": "Godot Shader",
+					"icon": "images/shader.svg"
+				}
+			]
+		},
+		"views": {
+			"godot-shader-explorer": [
+				{
+					"id": "godotShaderOutline",
+					"name": "%view.outline.name%",
+					"icon": "images/shader.svg",
+					"contextualTitle": "Godot Shader",
+					"visibility": "visible"
+				}
+			]
+		},
+		"chatParticipants": [
+			{
+				"id": "godot-shader",
+				"name": "shader",
+				"fullName": "Godot Shader",
+				"description": "%chat.description%",
+				"isSticky": true,
+				"commands": [
+					{
+						"name": "expand",
+						"description": "%chat.cmd.expand%"
+					},
+					{
+						"name": "uniforms",
+						"description": "%chat.cmd.uniforms%"
+					},
+					{
+						"name": "diagnostics",
+						"description": "%chat.cmd.diagnostics%"
+					},
+					{
+						"name": "docs",
+						"description": "%chat.cmd.docs%"
+					}
+				]
+			}
+		],
+		"walkthroughs": [
+			{
+				"id": "godotShaderGettingStarted",
+				"title": "%walkthrough.title%",
+				"description": "%walkthrough.description%",
+				"steps": [
+					{
+						"id": "open",
+						"title": "%walkthrough.step.open.title%",
+						"description": "%walkthrough.step.open.desc%",
+						"media": {
+							"markdown": "media/walkthrough-open.md"
+						}
+					},
+					{
+						"id": "includes",
+						"title": "%walkthrough.step.includes.title%",
+						"description": "%walkthrough.step.includes.desc%",
+						"media": {
+							"markdown": "media/walkthrough-includes.md"
+						}
+					},
+					{
+						"id": "commands",
+						"title": "%walkthrough.step.commands.title%",
+						"description": "%walkthrough.step.commands.desc%",
+						"media": {
+							"markdown": "media/walkthrough-commands.md"
+						}
+					}
+				]
+			}
+		]
 	},
 	"devDependencies": {
 		"@types/node": "^18.0.0",
-		"@types/vscode": "1.85.0",
+		"@types/vscode": "1.100.0",
 		"typescript": "^5.8.0"
 	},
 	"capabilities": {
@@ -267,7 +383,7 @@
 		},
 		"virtualWorkspaces": {
 			"supported": "limited",
-			"description": "Include resolution needs the local file system; everything else works."
+			"description": "Include resolution and workspace indexing use the local file system; diagnostics, completion and navigation keep working."
 		}
 	},
 	"markdown": "github",

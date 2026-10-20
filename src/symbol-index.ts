@@ -114,9 +114,18 @@ export function buildDocIndex(codeLines: string[], rawLines: string[]): DocIndex
     }
 
     // ── 普通全局声明（`LightData main_light;` / `vec3 offset = ...;`） ──
-    // 只认"已知类型"（内置类型或已声明的 struct），并跳过函数体与 struct 内部
+    // 只认"已知类型"（内置类型或本文件声明的 struct）；
+    // 未知类型只要不是语句关键字也接受 —— 类型可能来自 #include（如 `Light lamp;`）
     const knownTypes = new Set<string>(GODOT_SHADER_TYPES);
     for (const s of structs) knownTypes.add(s.name);
+
+    // 顶层以这些词开头的都不是"类型 名字"声明
+    const STATEMENT_LEADING = new Set([
+        'shader_type', 'render_mode', 'stencil_mode', 'group_uniforms',
+        'uniform', 'varying', 'const', 'in', 'out', 'inout', 'struct', 'void',
+        'if', 'else', 'for', 'while', 'do', 'switch', 'case', 'default',
+        'return', 'discard', 'break', 'continue', 'precision', 'highp', 'mediump', 'lowp'
+    ]);
 
     const insideFuncOrStruct = (line: number): boolean => {
         for (const b of blocks) {
@@ -132,7 +141,8 @@ export function buildDocIndex(codeLines: string[], rawLines: string[]): DocIndex
         if (insideFuncOrStruct(i)) continue;
         const m = codeLines[i].match(/^\s*(\w+)\s+(\w+)\s*(?:\[[^\]]*\])?\s*(?:=|;)/);
         if (!m) continue;
-        if (!knownTypes.has(m[1])) continue;
+        if (STATEMENT_LEADING.has(m[1])) continue;
+        if (!knownTypes.has(m[1]) && !/^[A-Za-z_]\w*$/.test(m[1])) continue;
         if (vars.some(v => v.name === m[2] && v.line === i)) continue;
         vars.push({ name: m[2], type: m[1], keyword: 'global', line: i, hint: '' });
     }

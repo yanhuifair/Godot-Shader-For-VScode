@@ -4,6 +4,43 @@ All notable changes to **Godot Shader for VS Code** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.114] — 2026-10-21
+
+### Changed
+
+- **Minimum VS Code is now 1.100.** That unlocks the long-stable APIs below; `@types/vscode` is
+  pinned to the same version so nothing newer can slip in.
+
+### Added
+
+- **Include on paste** — pasting code that uses symbols from another `.gdshaderinc` offers
+  “Paste and add N #include(s)”; the text and the include lines are written in a single undo step.
+  Toggle: `godot-shader.paste.autoInclude`.
+- **Include on drop** — dropping a `.gdshaderinc` / `.gdshader` into the editor inserts the matching
+  `#include` (already-reachable files are skipped).
+- **Go to Type Definition** — variable or struct field → the `struct` it is typed with, through
+  includes as well.
+- **Go to Declaration** — for symbols coming from an include, the declaration *is* the `#include`
+  line that brings it in.
+- **Inline (ghost text) completions** — `#include "…"` paths, `shader_type` values and
+  `group_uniforms` names. Toggle: `godot-shader.inlineCompletions.enabled`.
+- **Linked editing** — rename a declared symbol everywhere in its scope while typing.
+- **Type hierarchy** — struct composition (`Shift+Alt+H`-style view): which structs embed the current
+  one, and which structs it embeds.
+- **Sidebar view** — Uniforms & Varyings (grouped by `group_uniforms`), the include graph with
+  missing files flagged, and every `.gdshader` in the workspace.
+- **File decorations** — error/warning counts on shader files, `↳` on files the current shader
+  includes.
+- **`@shader` chat participant** — `/expand`, `/uniforms`, `/diagnostics`, `/docs` (deterministic,
+  no model required); free-form questions go to the chat model.
+- **Walkthrough** — three-step onboarding shown on first install.
+- `Godot Shader: Refresh Shader View` command.
+
+### Fixed
+
+- Global variables typed with a struct imported from an `#include` (e.g. `Light lamp;`) were missing
+  from the symbol index — so they had no hover, completion entry or definition jump.
+
 ## [1.0.113] — 2026-10-21
 
 ### Added

@@ -4,6 +4,7 @@
 import * as vscode from 'vscode';
 import { t } from './i18n';
 import { invalidateIncludeCache } from './include-graph';
+import { invalidateWorkspaceIncludes } from './workspace-includes';
 import { GODOT_SHADER_TYPE_DESCRIPTIONS } from './shader-data';
 import { GodotShaderWorkspaceSymbolProvider } from './features/workspace-symbols';
 import { ExpandedShaderProvider, expandIncludesCommand } from './features/expanded-preview';
@@ -13,7 +14,9 @@ export const COMMANDS = {
     switchShaderType: 'godotShader.switchShaderType',
     insertTemplate: 'godotShader.insertTemplate',
     showOutput: 'godotShader.showOutput',
-    reloadSymbols: 'godotShader.reloadSymbols'
+    reloadSymbols: 'godotShader.reloadSymbols',
+    revealLocation: 'godotShader.revealLocation',
+    refreshTree: 'godotShader.refreshTree'
 } as const;
 
 const LANGUAGE_ID = 'godot-shader';
@@ -24,7 +27,8 @@ const LANGUAGE_ID = 'godot-shader';
 export function registerCommands(
     context: vscode.ExtensionContext,
     outputChannel: vscode.OutputChannel,
-    expandedProvider: ExpandedShaderProvider
+    expandedProvider: ExpandedShaderProvider,
+    treeProvider?: { refresh(): void }
 ): void {
     const push = (d: vscode.Disposable) => context.subscriptions.push(d);
 
@@ -119,7 +123,23 @@ export function registerCommands(
     push(vscode.commands.registerCommand(COMMANDS.reloadSymbols, () => {
         invalidateIncludeCache();
         GodotShaderWorkspaceSymbolProvider.invalidateCache();
+        invalidateWorkspaceIncludes();
+        treeProvider?.refresh();
         outputChannel.appendLine(`[reload] ${new Date().toLocaleTimeString()} ${t('output.reloaded')}`);
         void vscode.window.showInformationMessage(t('cmd.reload.done'));
+    }));
+
+    // 6. 跳到指定位置（侧栏点击用）
+    push(vscode.commands.registerCommand(COMMANDS.revealLocation, async (uri: vscode.Uri, line: number, character: number) => {
+        const document = await vscode.workspace.openTextDocument(uri);
+        const position = new vscode.Position(Math.max(0, line), Math.max(0, character));
+        const editor = await vscode.window.showTextDocument(document, { preview: false });
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+    }));
+
+    // 7. 刷新侧栏
+    push(vscode.commands.registerCommand(COMMANDS.refreshTree, () => {
+        treeProvider?.refresh();
     }));
 }

@@ -3,9 +3,9 @@
 <!-- markdownlint-disable MD033 MD041 MD013 -->
 <div align="center">
 
-![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
+![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.113-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.114-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -20,7 +20,7 @@
 
 > 🌐 [简体中文](./README-zh.md)
 
-Full language support for Godot 4 shaders — **20 language providers**, **162 built-in symbols**,
+Full language support for Godot 4 shaders — **28 language providers**, **162 built-in symbols**,
 **121 functions**, **65 snippets**, **23 diagnostic rules**, **cross-file resolution** through
 `#include`, fully bilingual (zh / en).
 
@@ -47,6 +47,14 @@ Full language support for Godot 4 shaders — **20 language providers**, **162 b
 - **Comment- and string-aware diagnostics** — 23 rules that never fire on text inside comments,
   strings or `#if 0` blocks.
 - **Real formatting** — switch/case indentation, operator spacing, brace style, CRLF preservation.
+- **Include on paste & drop** — paste code that uses symbols from another `.gdshaderinc` and
+  the `#include` is written for you; drop a file into the editor and the include line appears.
+- **Type-aware navigation** — type definition (variable → its `struct`), go-to-declaration
+  (jumps to the `#include` that brings a symbol in), struct composition hierarchy, linked editing.
+- **A real sidebar** — uniforms grouped by `group_uniforms`, the include graph with missing files
+  flagged, and every shader in the workspace.
+- **Ask `@shader`** — chat participant for `/expand`, `/uniforms`, `/diagnostics` and `/docs`
+  (`/expand` & co. work without a language model).
 - **Everything else** — semantic highlighting, folding, color picker, quick fixes, code lens,
   snippets, bilingual UI.
 
@@ -264,6 +272,10 @@ Preprocessor directives always stay at column 0, and `case`/`default` labels plu
 | Document Links | `Ctrl+Click` | `#include "common.gdshaderinc"` → opens the file |
 | Selection Range | `Alt+Shift+→` | `word` → `line` → `{ block }` → `void f() {…}` → full document |
 | Call Hierarchy | `Shift+Alt+H` | Who calls this function and what it calls (searches the current include graph) |
+| Type Definition | — | Variable or field → the `struct` it is typed with (through includes too) |
+| Go to Declaration | — | Symbol coming from an include → the `#include` line that brings it in |
+| Linked Editing | — | Type once, every occurrence in the same scope follows |
+| Inline suggestion | — | Ghost text for `#include` paths, `shader_type` values and `group_uniforms` names |
 | Outline | Sidebar | Structs (with fields), uniforms, varyings, functions |
 
 Other shortcuts: `Ctrl+Space` completion · `Shift+Alt+F` format document · `Ctrl+.` quick fix ·
@@ -290,8 +302,42 @@ void fragment() { COLOR = vec4(wave(UV)); }        // calls wave
 | `Godot Shader: Insert Shader Template` | — | Insert a minimal template for the picked type |
 | `Godot Shader: Show Output Panel` | — | Include/command log — also opens when clicking the status bar |
 | `Godot Shader: Reload Symbol Caches` | — | Drop include & workspace symbol caches |
+| `Godot Shader: Refresh Shader View` | — | Refresh the sidebar (also a button in its title bar) |
 
 The first three also appear in the editor context menu.
+
+### Include on Paste & Drop
+
+Paste a block that references `ripple_at()` from `common.gdshaderinc` and VS Code offers
+**“Paste and add 1 #include”** — accepting it inserts the text *and* the include line in one undo step.
+Drag a `.gdshaderinc` into the editor and the matching `#include` is inserted at the drop point.
+Symbols that are already reachable are never suggested twice.
+Toggle: `godot-shader.paste.autoInclude`.
+
+### Sidebar
+
+The **Godot Shader** view in the activity bar has three sections:
+
+| Section | Content |
+|---|---|
+| Uniforms & Varyings | Grouped by `group_uniforms`; click to jump to the declaration |
+| Includes | The include graph of the current file, missing files flagged with ⚠ |
+| Workspace Shaders | Every `.gdshader` with its `shader_type` |
+
+The explorer also decorates files: error/warning count as a badge, and `↳` on files the current
+shader includes.
+
+### Chat: `@shader`
+
+```
+@shader /expand        the shader with every include expanded
+@shader /uniforms      uniform table with types and hints
+@shader /diagnostics   current diagnostics
+@shader /docs TIME     documentation for a built-in variable, function, keyword or hint
+```
+
+The slash commands are deterministic and need no model; a free-form question is forwarded to the
+language model you pick in the chat view (if any).
 
 ### Visual Features
 
@@ -379,6 +425,8 @@ Every fixable diagnostic can also be applied in one go: run **Source Action… �
 | `godot-shader.diagnostics.strictMode` | `false` | Extra performance warnings (`discard`, `texture()` in loops) |
 | `godot-shader.formatting.braceNewLine` | `false` | Put `{` on its own line |
 | `godot-shader.completion.autoImport` | `true` | Complete symbols from other `.gdshaderinc` files and insert the `#include` |
+| `godot-shader.paste.autoInclude` | `true` | Offer `#include` when pasting code that uses external symbols |
+| `godot-shader.inlineCompletions.enabled` | `true` | Ghost-text completion for include paths, `shader_type`, groups |
 | `godot-shader.inlayHints.showParameterNames` | `true` | Show inline parameter name hints |
 | `godot-shader.colorPicker.enabled` | `true` | Show the color picker for color literals |
 | `godot-shader.trace.includeResolution` | `false` | Log `#include` resolution to the output panel |
@@ -387,7 +435,8 @@ Every fixable diagnostic can also be applied in one go: run **Source Action… �
 
 ## Requirements
 
-- **VS Code 1.85** or newer
+- **VS Code 1.100** or newer (the extension uses the stable paste/drop-edit, inline-completion
+  and chat APIs)
 - Godot **4.x** shader language (`shader_type`-style, `.gdshader` / `.gdshaderinc`)
 - No Godot installation, no build step, no background service — the extension is static analysis only
 
@@ -406,6 +455,10 @@ Every fixable diagnostic can also be applied in one go: run **Source Action… �
   in the workspace, so callers in unrelated files are not listed.
 - **Color picker** understands `vec3(r, g, b)`, `vec4(r, g, b, a)` and `#RRGGBB` / `#RRGGBBAA`
   literals only — not `vec4(vec3, a)` or single-value `vec3(x)`.
+- **Linked editing and rename stop at the file boundary** for symbols declared in an include —
+  rename (F2) still updates the include file, but live linked editing only follows the current file.
+- **Type hierarchy models composition, not inheritance** — shaders have no inheritance, so
+  “supertypes” are the structs that embed the current one.
 - **No shader preview or compilation.** Godot stays the source of truth for rendering.
 
 ---

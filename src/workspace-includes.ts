@@ -24,10 +24,13 @@ const TTL = 30_000;
 
 let cache: { value: WorkspaceIncludeSymbols; at: number } | null = null;
 let loading: Promise<WorkspaceIncludeSymbols> | null = null;
+/** 工作区内所有 `.gdshaderinc`（用于内联补全的路径提示与侧栏列表） */
+let fileCache: { uris: vscode.Uri[]; at: number } | null = null;
 
 /** 文件变化时由扩展调用 */
 export function invalidateWorkspaceIncludes(): void {
     cache = null;
+    fileCache = null;
 }
 
 /**
@@ -76,18 +79,30 @@ export function getWorkspaceIncludeSymbols(): Promise<WorkspaceIncludeSymbols> {
     return loading;
 }
 
-/**
- * 计算插入 `#include "<rel>"` 的位置：优先放在最后一条 #include 之后，
- * 其次放在 shader_type 之后，都没有就放文件开头。
- */
-export function buildIncludeInsertion(document: vscode.TextDocument, targetUri: vscode.Uri): vscode.TextEdit | null {
-    if (document.uri.scheme !== 'file' || targetUri.scheme !== 'file') return null;
+/** 工作区内所有 `.gdshaderinc`（用于内联补全的路径提示与侧栏列表） */
+export async function getWorkspaceIncludeFiles(): Promise<vscode.Uri[]> {
+    if (fileCache && Date.now() - fileCache.at < TTL) return fileCache.uris;
+    let uris: vscode.Uri[] = [];
+    try {
+        uris = await vscode.workspace.findFiles('**/*.gdshaderinc', '**/node_modules/**', MAX_FILES);
+    } catch {
+        uris = [];
+    }
+    fileCache = { uris, at: Date.now() };
+    return uris;
+}
 
+/** 从 `from` 到 `target` 的 include 写法（相对路径，统一用 `/`） */
+export function toIncludePath(fromUri: vscode.Uri, targetUri: vscode.Uri): string | null {
+    if (fromUri.scheme !== 'file' || targetUri.scheme !== 'file') return null;
     const path = require('path') as typeof import('path');
-    let rel = path.relative(path.dirname(document.uri.fsPath), targetUri.fsPath);
+    const rel = path.relative(path.dirname(fromUri.fsPath), targetUri.fsPath);
     if (!rel) return null;
-    rel = rel.split(path.sep).join('/');
+    return rel.split(path.sep).join('/');
+}
 
+/** `#include` 应插入的行号：最后一条 include 之后 → shader_type 之后 → 文件开头 */
+export function includeInsertionLine(document: vscode.TextDocument): number {
     let lastInclude = -1;
     let shaderTypeLine = -1;
     for (let i = 0; i < document.lineCount; i++) {
@@ -95,7 +110,28 @@ export function buildIncludeInsertion(document: vscode.TextDocument, targetUri: 
         if (/^\s*#\s*include\b/.test(text)) lastInclude = i;
         else if (/^\s*shader_type\b/.test(text)) shaderTypeLine = i;
     }
+    return lastInclude >= 0 ? lastInclude + 1 : (shaderTypeLine >= 0 ? shaderTypeLine + 1 : 0);
+}
 
-    const insertLine = lastInclude >= 0 ? lastInclude + 1 : (shaderTypeLine >= 0 ? shaderTypeLine + 1 : 0);
-    return vscode.TextEdit.insert(new vscode.Position(insertLine, 0), `#include "${rel}"\n`);
+/**
+ * 批量插入 `#include "..."`（一次编辑，保持传入顺序）
+ */
+export function buildIncludeBlockInsertion(document: vscode.TextDocument, targetUris: vscode.Uri[]): vscode.TextEdit | null {
+    const rels: string[] = [];
+    for (const uri of targetUris) {
+        const rel = toIncludePath(document.uri, uri);
+        if (rel && !rels.includes(rel)) rels.push(rel);
+    }
+    if (rels.length === 0) return null;
+
+    const text = rels.map(r => `#include "${r}"`).join('\n') + '\n';
+    return vscode.TextEdit.insert(new vscode.Position(includeInsertionLine(document), 0), text);
+}
+
+/**
+ * 计算插入 `#include "<rel>"` 的位置：优先放在最后一条 #include 之后，
+ * 其次放在 shader_type 之后，都没有就放文件开头。
+ */
+export function buildIncludeInsertion(document: vscode.TextDocument, targetUri: vscode.Uri): vscode.TextEdit | null {
+    return buildIncludeBlockInsertion(document, [targetUri]);
 }

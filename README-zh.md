@@ -3,9 +3,9 @@
 <!-- markdownlint-disable MD033 MD041 MD013 -->
 <div align="center">
 
-![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
+![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.113-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.114-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -20,7 +20,7 @@
 
 > 🌐 [English](./README.md)
 
-Godot 4 着色器的完整语言支持 —— **20 个语言能力（Provider）**、**162 个内置符号**、**121 个内置函数**、
+Godot 4 着色器的完整语言支持 —— **28 个语言能力（Provider）**、**162 个内置符号**、**121 个内置函数**、
 **65 个代码片段**、**23 条诊断规则**，支持 `#include` **跨文件解析**，中英双语。
 
 **仓库地址：** <https://github.com/yanhuifair/Godot-Shader-For-VScode>
@@ -44,6 +44,13 @@ Godot 4 着色器的完整语言支持 —— **20 个语言能力（Provider）
   以及跨 include 的函数调用层次。
 - **注释/字符串感知的诊断** —— 23 条规则，绝不会因为注释、字符串或 `#if 0` 块里的文字而报错。
 - **真正的格式化** —— switch/case 缩进、运算符空格、大括号风格、CRLF 保持。
+- **粘贴与拖拽自动补 include** —— 粘贴一段引用了别的 `.gdshaderinc` 符号的代码，
+  会同时写入对应的 `#include`；把文件拖进编辑器也会自动插入 include 行。
+- **类型感知的导航** —— 类型定义（变量 → 它的 struct）、转到声明（跳到引入该符号的 `#include` 行）、
+  struct 组合关系层次、联动编辑。
+- **真正的侧边栏** —— 按 `group_uniforms` 分组的参数、带缺失标注的 include 图、工作区全部着色器。
+- **问 `@shader`** —— 对话里使用 `/expand`、`/uniforms`、`/diagnostics`、`/docs`
+  （斜杠命令不需要语言模型）。
 - **其它** —— 语义高亮、折叠、取色器、快速修复、CodeLens、代码片段、中英双语 UI。
 
 全部功能都是静态分析，**不需要启动 Godot**。
@@ -256,6 +263,10 @@ void fragment() {               void fragment()
 | 文档链接 | `Ctrl+点击` | `#include "common.gdshaderinc"` → 打开文件 |
 | 选择范围 | `Alt+Shift+→` | `单词` → `行` → `{ 块 }` → `void f() {…}` → 全文 |
 | 调用层次 | `Shift+Alt+H` | 谁调用了当前函数、它又调用了谁（搜索当前 include 图） |
+| 类型定义 | — | 变量或字段 → 它所属的 `struct`（跨 include 也可） |
+| 转到声明 | — | 来自 include 的符号 → 引入它的那条 `#include` |
+| 联动编辑 | — | 改一处，同作用域内所有同名位置一起改 |
+| 内联补全 | — | `#include` 路径、`shader_type` 取值、`group_uniforms` 名称的灰字提示 |
 | 大纲 | 侧栏 | struct（含字段）、uniform、varying、函数 |
 
 其它快捷键：`Ctrl+Space` 触发补全 · `Shift+Alt+F` 格式化文档 · `Ctrl+.` 快速修复 ·
@@ -282,8 +293,39 @@ void fragment() { COLOR = vec4(wave(UV)); }        // 调用 wave
 | `Godot Shader: 插入着色器模板` | — | 按所选类型插入最简模板 |
 | `Godot Shader: 显示输出面板` | — | include / 命令日志（点状态栏也会打开） |
 | `Godot Shader: 重建符号缓存` | — | 清空 include 与工作区符号缓存 |
+| `Godot Shader: 刷新着色器视图` | — | 刷新侧栏（视图标题栏也有按钮） |
 
 前三个命令同时出现在编辑器右键菜单里。
+
+### 粘贴与拖拽
+
+粘贴的代码用到了 `common.gdshaderinc` 里的 `ripple_at()` 时，会出现
+**「粘贴并添加 1 个 #include」** —— 接受后文本与 include 行一次性写入（一次撤销即可回退）。
+把 `.gdshaderinc` 拖进编辑器，`#include` 会插在落点处。已经能访问到的文件不会重复提示。
+开关：`godot-shader.paste.autoInclude`。
+
+### 侧边栏
+
+活动栏里的 **Godot Shader** 视图分三段：
+
+| 分区 | 内容 |
+|---|---|
+| 参数与变量 | 按 `group_uniforms` 分组，点击跳到声明 |
+| 包含文件 | 当前文件的 include 图，缺失的文件标 ⚠ |
+| 工作区着色器 | 所有 `.gdshader`，附 `shader_type` |
+
+资源管理器里也有装饰：错误/警告数量角标，被当前着色器 include 的文件显示 `↳`。
+
+### 对话：`@shader`
+
+```
+@shader /expand        展开所有 include 的完整源码
+@shader /uniforms      带类型与 hint 的参数表
+@shader /diagnostics   当前诊断
+@shader /docs TIME     内置变量 / 函数 / 关键字 / hint 的说明
+```
+
+斜杠命令是确定性的、不需要模型；自由提问会转给对话里选中的语言模型（如果有）。
 
 ### 视觉特性
 
@@ -370,6 +412,8 @@ atan2(1.0, 2.0)               // 快速修复：改为 atan
 | `godot-shader.diagnostics.strictMode` | `false` | 额外的性能警告（`discard`、循环内 `texture()`） |
 | `godot-shader.formatting.braceNewLine` | `false` | `{` 是否另起一行 |
 | `godot-shader.completion.autoImport` | `true` | 补全其它 `.gdshaderinc` 里的符号并自动插入 `#include` |
+| `godot-shader.paste.autoInclude` | `true` | 粘贴引用外部符号的代码时提示补 `#include` |
+| `godot-shader.inlineCompletions.enabled` | `true` | include 路径、`shader_type`、分组的灰字补全 |
 | `godot-shader.inlayHints.showParameterNames` | `true` | 是否显示参数名内联提示 |
 | `godot-shader.colorPicker.enabled` | `true` | 是否为颜色字面量显示取色器 |
 | `godot-shader.trace.includeResolution` | `false` | 在输出面板打印 `#include` 解析过程 |
@@ -378,7 +422,7 @@ atan2(1.0, 2.0)               // 快速修复：改为 atan
 
 ## 环境要求
 
-- **VS Code 1.85** 及以上
+- **VS Code 1.100** 及以上（用到了稳定的粘贴/拖拽编辑、内联补全与对话 API）
 - Godot **4.x** 的着色器语法（`shader_type` 风格，`.gdshader` / `.gdshaderinc`）
 - 不需要安装 Godot、不需要构建、不常驻后台 —— 纯静态分析
 
@@ -396,6 +440,9 @@ atan2(1.0, 2.0)               // 快速修复：改为 atan
   无关文件里的调用不会列出。
 - **取色器**只识别 `vec3(r, g, b)`、`vec4(r, g, b, a)` 与 `#RRGGBB` / `#RRGGBBAA` 字面量，
   不识别 `vec4(vec3, a)` 或单值 `vec3(x)`。
+- **联动编辑与重命名的范围不同**：声明在 include 里的符号，F2 重命名仍会改到 include 文件，
+  但联动编辑只跟随当前文件。
+- **类型层次表达的是组合关系，不是继承** —— 着色器没有继承，"父类型"指把当前 struct 当字段使用的结构体。
 - **不做着色器预览/编译**，渲染以 Godot 为准。
 
 ---

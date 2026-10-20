@@ -71,6 +71,72 @@ en['fix.fix_all'] = 'Fix all auto-fixable problems ({0})';
 zh['fix.remove_brace'] = '删除多余的反大括号 }';
 en['fix.remove_brace'] = 'Remove unexpected closing brace }';
 
+// 粘贴 / 拖拽自动补 include
+zh['paste.add_includes'] = '粘贴并添加 {0} 个 #include';
+en['paste.add_includes'] = 'Paste and add {0} #include(s)';
+zh['drop.add_includes'] = '插入 {0} 个 #include';
+en['drop.add_includes'] = 'Insert {0} #include(s)';
+
+// 侧栏视图
+zh['view.uniforms'] = '参数与变量';
+en['view.uniforms'] = 'Uniforms & Varyings';
+zh['view.includes'] = '包含文件';
+en['view.includes'] = 'Includes';
+zh['view.shaders'] = '工作区着色器';
+en['view.shaders'] = 'Workspace Shaders';
+zh['view.group_count'] = '{0} 项';
+en['view.group_count'] = '{0} item(s)';
+zh['view.missing'] = '未找到';
+en['view.missing'] = 'not found';
+zh['view.missing_tooltip'] = '找不到 {0}（可能尚未创建）';
+en['view.missing_tooltip'] = 'Cannot find {0} (may not exist yet)';
+zh['view.open'] = '打开';
+zh['view.empty_hint'] = '打开一个 Godot 着色器文件以查看参数与包含关系';
+en['view.open'] = 'Open';
+en['view.empty_hint'] = 'Open a Godot shader file to inspect its uniforms and includes';
+
+// 资源管理器装饰
+zh['deco.errors'] = '{0} 个错误';
+en['deco.errors'] = '{0} error(s)';
+zh['deco.warnings'] = '{0} 个警告';
+en['deco.warnings'] = '{0} warning(s)';
+zh['deco.included_by'] = '被 {0} 包含';
+en['deco.included_by'] = 'Included by {0}';
+
+// 命令：定位
+zh['cmd.reveal.title'] = '跳转到位置';
+en['cmd.reveal.title'] = 'Reveal Location';
+zh['cmd.refresh_tree.title'] = '刷新着色器视图';
+en['cmd.refresh_tree.title'] = 'Refresh Shader View';
+
+// 聊天参与者
+zh['chat.need_shader_file'] = '请先打开一个 Godot 着色器文件（.gdshader / .gdshaderinc）。';
+en['chat.need_shader_file'] = 'Open a Godot shader file (.gdshader / .gdshaderinc) first.';
+zh['chat.no_uniforms'] = '当前文件没有 uniform / varying / const 声明。';
+en['chat.no_uniforms'] = 'This file declares no uniform / varying / const.';
+zh['chat.no_diagnostics'] = '当前文件没有诊断信息。';
+en['chat.no_diagnostics'] = 'No diagnostics for this file.';
+zh['chat.diagnostics_count'] = '条诊断：';
+en['chat.diagnostics_count'] = 'diagnostic(s):';
+zh['chat.line'] = '第 {0} 行';
+en['chat.line'] = 'line {0}';
+zh['chat.col.name'] = '名称';
+en['chat.col.name'] = 'Name';
+zh['chat.col.type'] = '类型';
+en['chat.col.type'] = 'Type';
+zh['chat.col.hint'] = 'hint';
+en['chat.col.hint'] = 'Hint';
+zh['chat.docs_usage'] = '用法：`@shader /docs TIME`、`@shader /docs texture`';
+en['chat.docs_usage'] = 'Usage: `@shader /docs TIME`, `@shader /docs texture`';
+zh['chat.docs_unknown'] = '没有找到 `{0}` 的文档。';
+en['chat.docs_unknown'] = 'No documentation found for `{0}`.';
+zh['chat.no_model'] = '没有可用的语言模型（需要 GitHub Copilot 等提供程序的会话）。`/expand`、`/uniforms`、`/diagnostics`、`/docs` 无需模型即可使用。';
+en['chat.no_model'] = 'No language model available (requires a provider such as GitHub Copilot). `/expand`, `/uniforms`, `/diagnostics` and `/docs` work without one.';
+zh['chat.system_context'] = '下面是当前 Godot 着色器文件的完整源码，请基于它回答：';
+en['chat.system_context'] = 'Here is the full source of the current Godot shader file. Answer based on it:';
+zh['chat.includes_ctx'] = '已包含的 include 文件：{0}';
+en['chat.includes_ctx'] = 'Included files: {0}';
+
 // 可用 shader_type
 zh['available_in'] = '适用的着色器类型';
 en['available_in'] = 'Available in';

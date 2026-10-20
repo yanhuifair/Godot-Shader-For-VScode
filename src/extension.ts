@@ -23,6 +23,14 @@ import { GodotShaderDocumentLinkProvider } from './features/document-links';
 import { GodotShaderSelectionRangeProvider } from './features/selection-range';
 import { GodotShaderOnTypeFormattingProvider } from './features/on-type-formatting';
 import { GodotShaderCallHierarchyProvider } from './features/call-hierarchy';
+import { GodotShaderTypeDefinitionProvider, GodotShaderDeclarationProvider } from './features/type-navigation';
+import { GodotShaderInlineCompletionProvider } from './features/inline-completions';
+import { GodotShaderLinkedEditingProvider } from './features/linked-editing';
+import { GodotShaderTypeHierarchyProvider } from './features/type-hierarchy';
+import { GodotShaderPasteEditProvider, GodotShaderDropEditProvider, INCLUDE_EDIT_KIND } from './features/include-edits';
+import { GodotShaderTreeProvider, invalidateShaderFiles } from './features/views';
+import { GodotShaderFileDecorationProvider } from './features/file-decoration';
+import { registerChatParticipant } from './features/chat-participant';
 import { t } from './i18n';
 import { invalidateIncludeCache, setIncludeLogger } from './include-graph';
 import { invalidateWorkspaceIncludes } from './workspace-includes';
@@ -75,12 +83,29 @@ export function activate(context: vscode.ExtensionContext) {
     const LANG = { language: 'godot-shader', scheme: 'file' } as const;
     const push = (d: vscode.Disposable) => context.subscriptions.push(d);
 
+    // 侧边栏视图（Uniforms / Includes / Workspace Shaders）
+    const treeProvider = new GodotShaderTreeProvider();
+    const treeView = vscode.window.createTreeView('godotShaderOutline', {
+        treeDataProvider: treeProvider,
+        showCollapseAll: true
+    });
+    treeView.message = t('view.empty_hint');
+    push(treeView);
+
+    // 资源管理器装饰（错误角标 / 被 include 标记）
+    const decorationProvider = new GodotShaderFileDecorationProvider();
+    push(decorationProvider);
+    push(vscode.window.registerFileDecorationProvider(decorationProvider));
+    push(vscode.languages.onDidChangeDiagnostics(() => decorationProvider.refresh()));
+
     // 监听 .gdshader / .gdshaderinc 文件变化以失效缓存（工作区符号 + 跨文件符号）
     const watcher = vscode.workspace.createFileSystemWatcher('**/*.{gdshader,gdshaderinc}');
     const invalidateCaches = () => {
         GodotShaderWorkspaceSymbolProvider.invalidateCache();
         invalidateIncludeCache();
         invalidateWorkspaceIncludes();
+        invalidateShaderFiles();
+        treeProvider.refresh();
     };
     watcher.onDidChange(invalidateCaches);
     watcher.onDidCreate(invalidateCaches);
@@ -125,7 +150,30 @@ export function activate(context: vscode.ExtensionContext) {
         new GodotShaderSemanticTokensProvider(), getSemanticTokensLegend()));
 
     // 跳转定义
-    push(vscode.languages.registerDefinitionProvider(LANG, new GodotShaderDefinitionProvider()));
+    const definitionProvider = new GodotShaderDefinitionProvider();
+    push(vscode.languages.registerDefinitionProvider(LANG, definitionProvider));
+
+    // 转到声明（include 进来的符号 → 跳到对应的 #include 行）
+    push(vscode.languages.registerDeclarationProvider(LANG,
+        new GodotShaderDeclarationProvider(definitionProvider)));
+
+    // 类型定义：变量 / 字段 → 它的 struct
+    push(vscode.languages.registerTypeDefinitionProvider(LANG, new GodotShaderTypeDefinitionProvider()));
+
+    // 类型层次：struct 的组合关系（谁包含我 / 我包含谁）
+    push(vscode.languages.registerTypeHierarchyProvider(LANG, new GodotShaderTypeHierarchyProvider()));
+
+    // 内联补全：include 路径、shader_type、group_uniforms 灰字提示
+    push(vscode.languages.registerInlineCompletionItemProvider(LANG, new GodotShaderInlineCompletionProvider()));
+
+    // 联动编辑：改名字时同作用域一起改
+    push(vscode.languages.registerLinkedEditingRangeProvider(LANG, new GodotShaderLinkedEditingProvider()));
+
+    // 粘贴 / 拖拽时自动补 #include
+    push(vscode.languages.registerDocumentPasteEditProvider(LANG,
+        new GodotShaderPasteEditProvider(), { providedPasteEditKinds: [INCLUDE_EDIT_KIND] }));
+    push(vscode.languages.registerDocumentDropEditProvider(LANG,
+        new GodotShaderDropEditProvider(), { providedDropEditKinds: [INCLUDE_EDIT_KIND], dropMimeTypes: ['text/uri-list'] }));
 
     // 查找引用
     push(vscode.languages.registerReferenceProvider(LANG, new GodotShaderReferenceProvider()));
@@ -179,8 +227,34 @@ export function activate(context: vscode.ExtensionContext) {
     const expandedProvider = new ExpandedShaderProvider();
     push(vscode.workspace.registerTextDocumentContentProvider(EXPANDED_SCHEME, expandedProvider));
 
+    // 活动编辑器变化 → 刷新侧栏与装饰
+    const syncActiveDocument = (document: vscode.TextDocument | undefined) => {
+        const shaderDoc = document && document.languageId === 'godot-shader' ? document : undefined;
+        treeProvider.setDocument(shaderDoc);
+        decorationProvider.setActiveDocument(shaderDoc);
+        treeView.message = shaderDoc ? undefined : t('view.empty_hint');
+    };
+    push(vscode.window.onDidChangeActiveTextEditor(e => syncActiveDocument(e?.document)));
+    push(vscode.workspace.onDidCloseTextDocument(doc => {
+        if (doc.languageId === 'godot-shader') syncActiveDocument(vscode.window.activeTextEditor?.document);
+    }));
+    syncActiveDocument(vscode.window.activeTextEditor?.document);
+
+    // 编辑时轻量刷新侧栏（200ms 防抖）
+    let treeTimer: NodeJS.Timeout | undefined;
+    push(vscode.workspace.onDidChangeTextDocument(e => {
+        if (e.document.languageId !== 'godot-shader') return;
+        if (e.document.uri.toString() !== vscode.window.activeTextEditor?.document.uri.toString()) return;
+        if (treeTimer) clearTimeout(treeTimer);
+        treeTimer = setTimeout(() => treeProvider.refresh(), 200);
+        if (treeTimer && typeof treeTimer.unref === 'function') treeTimer.unref();
+    }));
+
+    // @shader 聊天参与者（/expand、/uniforms、/diagnostics、/docs）
+    registerChatParticipant(context);
+
     // 命令（命令面板 / 右键菜单 / 快捷键）
-    registerCommands(context, outputChannel, expandedProvider);
+    registerCommands(context, outputChannel, expandedProvider, treeProvider);
 }
 
 export function deactivate() {
