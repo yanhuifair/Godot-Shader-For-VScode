@@ -122,6 +122,12 @@ function getFileIndex(uri: vscode.Uri): { index: DocIndex; lines: string[] } | n
     return entry;
 }
 
+/** 读取目标文件的源码行（优先编辑器内容），不可读时返回 null */
+export function readSourceLines(uri: vscode.Uri): string[] | null {
+    const entry = getFileIndex(uri);
+    return entry ? entry.lines : null;
+}
+
 /**
  * 收集当前文档 + 所有 `#include` 进来的文件里的符号。
  * 结果里 `origin === null` 的项就是当前文件自己的符号。

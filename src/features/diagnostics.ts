@@ -602,11 +602,22 @@ export class GodotShaderDiagnosticProvider {
                 const name = declMatch.name;
                 if (declaredNames.has(name)) {
                     const firstLine = declaredNames.get(name)!;
+                    const firstCol = lines[firstLine].indexOf(name);
                     diagnostics.push({
                         severity: vscode.DiagnosticSeverity.Error,
                         range: new vscode.Range(i, lines[i].indexOf(name), i, lines[i].indexOf(name) + name.length),
                         message: t('diag.duplicate_declaration', name, String(firstLine + 1)),
-                        source: 'godot-shader'
+                        source: 'godot-shader',
+                        // 关联信息：点击可直接跳到首次声明处
+                        relatedInformation: [
+                            new vscode.DiagnosticRelatedInformation(
+                                new vscode.Location(
+                                    document.uri,
+                                    new vscode.Range(firstLine, Math.max(0, firstCol), firstLine, Math.max(0, firstCol) + name.length)
+                                ),
+                                t('diag.first_declared_here', String(firstLine + 1))
+                            )
+                        ]
                     });
                 } else {
                     declaredNames.set(name, i);
@@ -1030,7 +1041,9 @@ export class GodotShaderDiagnosticProvider {
                     severity: vscode.DiagnosticSeverity.Hint,
                     range: new vscode.Range(decl.line, decl.col, decl.line, decl.col + decl.name.length),
                     message: t(key, decl.name),
-                    source: 'godot-shader'
+                    source: 'godot-shader',
+                    // 未使用的声明显示删除线
+                    tags: [vscode.DiagnosticTag.Unnecessary]
                 });
             }
         }
@@ -1266,7 +1279,9 @@ export class GodotShaderDiagnosticProvider {
                             severity: vscode.DiagnosticSeverity.Error,
                             range: new vscode.Range(i, match.index, i, match.index + d.name.length),
                             message: t('diag.deprecated_function', d.name, d.replace),
-                            source: 'godot-shader'
+                            source: 'godot-shader',
+                            // 废弃函数显示删除线
+                            tags: [vscode.DiagnosticTag.Deprecated]
                         });
                     }
                 }
@@ -1387,7 +1402,9 @@ export class GodotShaderDiagnosticProvider {
                         severity: vscode.DiagnosticSeverity.Warning,
                         range: new vscode.Range(info.line, info.col, info.line, info.col + name.length),
                         message: t('diag.unused_local', name),
-                        source: 'godot-shader'
+                        source: 'godot-shader',
+                        // 未使用的局部变量显示删除线
+                        tags: [vscode.DiagnosticTag.Unnecessary]
                     });
                 }
             }

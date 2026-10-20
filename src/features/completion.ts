@@ -21,6 +21,7 @@ import { t, getLanguage, td, getLang } from '../i18n';
 import { getShaderType } from '../utils';
 import { getDocIndex, getLocalSymbols, getGlobalSymbols } from '../symbol-index';
 import { getProjectSymbols } from '../include-graph';
+import { getWorkspaceIncludeSymbols, buildIncludeInsertion } from '../workspace-includes';
 
 // 语言感知的补全缓存（避免每次补全都重建 300+ 个 CompletionItem）
 let cachedAllCompletions: { lang: string; items: vscode.CompletionItem[] } | null = null;
@@ -152,8 +153,80 @@ export class GodotShaderCompletionProvider implements vscode.CompletionItemProvi
                 ...this.getUserSymbolCompletions(document, position)
             ];
         }
-        
-        return completions;
+
+        // 补上「工作区里其它 .gdshaderinc 中的符号」——接受时自动插入 #include
+        return this.withAutoImports(document, completions);
+    }
+
+    /**
+     * Auto-import：把尚未 include 的 .gdshaderinc 里的符号加入补全，
+     * 选中时通过 additionalTextEdits 自动补上 `#include "..."`。
+     */
+    private async withAutoImports(
+        document: vscode.TextDocument,
+        items: vscode.CompletionItem[]
+    ): Promise<vscode.CompletionItem[]> {
+        const enabled = vscode.workspace.getConfiguration('godot-shader').get<boolean>('completion.autoImport', true);
+        if (!enabled || document.uri.scheme !== 'file') return items;
+
+        let workspaceSymbols;
+        try {
+            workspaceSymbols = await getWorkspaceIncludeSymbols();
+        } catch {
+            return items;
+        }
+        if (workspaceSymbols.entries.length === 0) return items;
+
+        const reachable = new Set(getProjectSymbols(document).includes.map(f => f.uri.toString()));
+        const existing = new Set<string>(items.map(i => (typeof i.label === 'string' ? i.label : '')));
+        const label = t('completion.auto_import');
+
+        for (const entry of workspaceSymbols.entries) {
+            const uriKey = entry.uri.toString();
+            // 已经（含传递）include 进来的文件不必再补
+            if (reachable.has(uriKey)) continue;
+            if (existing.has(entry.sym.name)) continue;
+
+            const includeEdit = buildIncludeInsertion(document, entry.uri);
+            if (!includeEdit) continue;
+
+            if (entry.kind === 'var') {
+                const v = entry.sym;
+                const kind = v.keyword === 'uniform' ? vscode.CompletionItemKind.Property
+                    : v.keyword === 'const' ? vscode.CompletionItemKind.Constant
+                    : vscode.CompletionItemKind.Variable;
+                const item = new vscode.CompletionItem(v.name, kind);
+                item.detail = `${v.keyword} ${v.type} · ${entry.label} · ${label}`;
+                item.documentation = new vscode.MarkdownString(`\`${v.keyword} ${v.type} ${v.name}\`\n\n> ${label}: \`#include "${entry.label}"\``);
+                item.sortText = '09' + v.name;
+                item.additionalTextEdits = [includeEdit];
+                items.push(item);
+            } else if (entry.kind === 'struct') {
+                const s = entry.sym;
+                const item = new vscode.CompletionItem(s.name, vscode.CompletionItemKind.Struct);
+                item.detail = `struct — ${s.fields.length} fields · ${entry.label} · ${label}`;
+                item.sortText = '09' + s.name;
+                item.additionalTextEdits = [includeEdit];
+                items.push(item);
+            } else {
+                const f = entry.sym;
+                const item = new vscode.CompletionItem(f.name, vscode.CompletionItemKind.Function);
+                item.detail = `${f.returnType} ${f.name}(${f.params.map(p => `${p.type} ${p.name}`.trim()).join(', ')}) · ${entry.label} · ${label}`;
+                item.documentation = new vscode.MarkdownString(`${f.doc ? f.doc + '\n\n' : ''}> ${label}: \`#include "${entry.label}"\``);
+                item.insertText = new vscode.SnippetString(
+                    f.params.length > 0
+                        ? `${f.name}(\${1:${f.params[0].name}}${f.params.slice(1).map((p, i) => `, \${${i + 2}:${p.name}}`).join('')})`
+                        : `${f.name}()`
+                );
+                item.sortText = '09' + f.name;
+                item.additionalTextEdits = [includeEdit];
+                items.push(item);
+            }
+
+            existing.add(entry.sym.name);
+        }
+
+        return items;
     }
     
     // 检查是否在 render_mode 上下文中（在 render_mode 关键字后，分号前）

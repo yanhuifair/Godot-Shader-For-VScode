@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.110-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.111-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -26,7 +26,7 @@ Godot 4 着色器的完整语言支持 —— **20 个语言能力（Provider）
 **仓库地址：** <https://github.com/yanhuifair/Godot-Shader-For-VScode>
 **插件市场：** <https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode>
 
-[功能亮点](#功能亮点) · [安装](#安装) · [补全](#补全) · [跨文件支持](#跨文件支持) · [悬停](#悬停) · [签名帮助](#签名帮助) · [内联提示](#内联提示) · [CodeLens](#codelens) · [诊断](#诊断) · [格式化](#格式化) · [导航](#导航) · [视觉特性](#视觉特性) · [快速修复](#快速修复) · [代码片段](#代码片段) · [配置项](#配置项) · [环境要求](#环境要求) · [已知限制](#已知限制) · [常见问题](#常见问题) · [开发](#开发)
+[功能亮点](#功能亮点) · [安装](#安装) · [补全](#补全) · [跨文件支持](#跨文件支持) · [悬停](#悬停) · [签名帮助](#签名帮助) · [内联提示](#内联提示) · [CodeLens](#codelens) · [诊断](#诊断) · [格式化](#格式化) · [导航](#导航) · [命令](#命令) · [视觉特性](#视觉特性) · [快速修复](#快速修复) · [代码片段](#代码片段) · [配置项](#配置项) · [环境要求](#环境要求) · [已知限制](#已知限制) · [常见问题](#常见问题) · [开发](#开发)
 
 ---
 
@@ -36,6 +36,10 @@ Godot 4 着色器的完整语言支持 —— **20 个语言能力（Provider）
   uniform、函数、struct 与局部变量，而不只是内置符号。
 - **默认跨文件** —— `.gdshaderinc`（含传递 include）里声明的符号在各处都能解析；重命名会连
   include 文件里的声明一起改。
+- **自动导入** —— 工作区其它 `.gdshaderinc` 里声明的符号也会出现在补全中，并自动补上对应的
+  `#include`。
+- **命令化操作** —— 展开 include 只读预览、切换 `shader_type`、插入模板、重建符号缓存
+  （命令面板 / 右键菜单 / `Ctrl+Alt+E`）。
 - **注释/字符串感知的诊断** —— 23 条规则，绝不会因为注释、字符串或 `#if 0` 块里的文字而报错。
 - **真正的格式化** —— switch/case 缩进、运算符空格、大括号风格、CRLF 保持。
 - **其它** —— 语义高亮、折叠、取色器、快速修复、CodeLens、代码片段、中英双语 UI。
@@ -90,6 +94,12 @@ my_uniform                              // ← 自己的 uniform / 函数 / stru
 补全列表还包含**文件内声明的所有符号**：uniform、varying、const、struct、函数（插入时带参数占位），
 以及当前函数的局部变量与参数 —— 最后是来自 `#include` 文件的符号，并标注来源文件。
 
+**工作区其它 `.gdshaderinc` 文件**里的符号同样会出现在补全中 —— 接受时自动插入对应的
+`#include`（开关：`godot-shader.completion.autoImport`）。
+
+**工作区其它 `.gdshaderinc` 文件**里的符号同样会出现在补全中 —— 接受时自动插入对应的
+`#include`（开关：`godot-shader.completion.autoImport`）。
+
 ### 跨文件支持
 
 `.gdshaderinc`（含传递 include）里声明的符号会在整个 include 图里解析：补全、悬停（标注来源文件）、
@@ -115,6 +125,9 @@ void fragment() {
 
 `res://shaders/common.gdshaderinc` 与 `./common.gdshaderinc` 两种写法都支持
 （`res://` 按工作区根目录解析）。
+
+运行 **Godot Shader: 展开 #include**（`Ctrl+Alt+E`）可以把所有 include 就地展开成一份完整着色器，
+只读虚拟文档，原文件不会被修改。
 
 ### 悬停
 
@@ -161,7 +174,7 @@ uniform float strength;               // 3 references
 
 ### 诊断
 
-**23 条规则**，全部跳过注释与字符串。
+**23 条规则**，全部跳过注释与字符串。未使用的声明与废弃函数显示删除线，重复声明会关联到首次声明的位置。
 
 ```glsl
 shader_type spatial;                  // ✅ 有效
@@ -242,6 +255,18 @@ void fragment() {               void fragment()
 其它快捷键：`Ctrl+Space` 触发补全 · `Shift+Alt+F` 格式化文档 · `Ctrl+.` 快速修复 ·
 `Alt+Shift+→` 扩展选区。
 
+### 命令
+
+| 命令 | 快捷键 | 作用 |
+|------|--------|------|
+| `Godot Shader: 展开 #include` | `Ctrl+Alt+E` | 生成所有 include 已展开的只读预览 |
+| `Godot Shader: 切换 shader_type` | — | 快速选择并替换（或插入）`shader_type` |
+| `Godot Shader: 插入着色器模板` | — | 按所选类型插入最简模板 |
+| `Godot Shader: 显示输出面板` | — | include / 命令日志（点状态栏也会打开） |
+| `Godot Shader: 重建符号缓存` | — | 清空 include 与工作区符号缓存 |
+
+前三个命令同时出现在编辑器右键菜单里。
+
 ### 视觉特性
 
 **语义高亮** —— 每类 token 使用不同颜色：
@@ -318,6 +343,7 @@ void fragment() { …          // 快速修复：补上缺少的 }
 | `godot-shader.diagnostics.checkBuiltinScope` | `true` | 校验内置变量在各着色器类型中的可用性 |
 | `godot-shader.diagnostics.strictMode` | `false` | 额外的性能警告（`discard`、循环内 `texture()`） |
 | `godot-shader.formatting.braceNewLine` | `false` | `{` 是否另起一行 |
+| `godot-shader.completion.autoImport` | `true` | 补全其它 `.gdshaderinc` 里的符号并自动插入 `#include` |
 | `godot-shader.inlayHints.showParameterNames` | `true` | 是否显示参数名内联提示 |
 | `godot-shader.colorPicker.enabled` | `true` | 是否为颜色字面量显示取色器 |
 

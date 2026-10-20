@@ -23,15 +23,23 @@ import { GodotShaderDocumentLinkProvider } from './features/document-links';
 import { GodotShaderSelectionRangeProvider } from './features/selection-range';
 import { t } from './i18n';
 import { invalidateIncludeCache } from './include-graph';
+import { invalidateWorkspaceIncludes } from './workspace-includes';
+import { registerCommands, COMMANDS } from './commands';
+import { ExpandedShaderProvider, EXPANDED_SCHEME } from './features/expanded-preview';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('Godot Shader extension is now active!');
 
-    // 状态栏
+    // 输出面板（排查 include 解析、查看命令结果）
+    const outputChannel = vscode.window.createOutputChannel('Godot Shader');
+    context.subscriptions.push(outputChannel);
+    outputChannel.appendLine(`Godot Shader activated — ${new Date().toLocaleString()}`);
+
+    // 状态栏（点击可打开输出面板）
     const statusBarItem = vscode.window.createStatusBarItem(
         vscode.StatusBarAlignment.Right, 100
     );
-    statusBarItem.command = undefined;
+    statusBarItem.command = COMMANDS.showOutput;
     statusBarItem.tooltip = t('statusbar.tooltip');
     context.subscriptions.push(statusBarItem);
 
@@ -63,6 +71,7 @@ export function activate(context: vscode.ExtensionContext) {
     const invalidateCaches = () => {
         GodotShaderWorkspaceSymbolProvider.invalidateCache();
         invalidateIncludeCache();
+        invalidateWorkspaceIncludes();
     };
     watcher.onDidChange(invalidateCaches);
     watcher.onDidCreate(invalidateCaches);
@@ -150,6 +159,13 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Selection Range — 智能选区逐级扩展（Alt+Shift+→）
     push(vscode.languages.registerSelectionRangeProvider(LANG, new GodotShaderSelectionRangeProvider()));
+
+    // 只读预览：展开 #include 后的完整着色器（虚拟文档，不落盘）
+    const expandedProvider = new ExpandedShaderProvider();
+    push(vscode.workspace.registerTextDocumentContentProvider(EXPANDED_SCHEME, expandedProvider));
+
+    // 命令（命令面板 / 右键菜单 / 快捷键）
+    registerCommands(context, outputChannel, expandedProvider);
 }
 
 export function deactivate() {

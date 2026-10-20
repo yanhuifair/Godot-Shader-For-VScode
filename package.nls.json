@@ -1,0 +1,7 @@
+{
+  "cmd.expandIncludes": "Expand #include (Read-only Preview)",
+  "cmd.switchShaderType": "Switch shader_type",
+  "cmd.insertTemplate": "Insert Shader Template",
+  "cmd.showOutput": "Show Output Panel",
+  "cmd.reloadSymbols": "Reload Symbol Caches"
+}

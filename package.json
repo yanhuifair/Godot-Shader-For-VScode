@@ -2,7 +2,7 @@
 	"name": "godot-shader-for-vscode",
 	"displayName": "Godot Shader For VSCode",
 	"description": "The best Godot Shader development extension. 最佳的 Godot Shader 开发插件。",
-	"version": "1.0.110",
+	"version": "1.0.111",
 	"license": "AGPL-3.0",
 	"publisher": "FairYan",
 	"icon": "images/logo.png",
@@ -112,13 +112,159 @@
 					"type": "boolean",
 					"default": true,
 					"description": "Show color picker for vec3/vec4/hex color values / 为颜色值显示颜色选择器"
+				},
+				"godot-shader.completion.autoImport": {
+					"type": "boolean",
+					"default": true,
+					"description": "Suggest symbols from other .gdshaderinc files in the workspace and insert the matching #include automatically / 补全工作区其它 .gdshaderinc 中的符号，并在接受时自动插入 #include"
+				}
+			}
+		},
+		"commands": [
+			{
+				"command": "godotShader.expandIncludes",
+				"title": "%cmd.expandIncludes%",
+				"category": "Godot Shader",
+				"icon": "$(preview)"
+			},
+			{
+				"command": "godotShader.switchShaderType",
+				"title": "%cmd.switchShaderType%",
+				"category": "Godot Shader",
+				"icon": "$(symbol-namespace)"
+			},
+			{
+				"command": "godotShader.insertTemplate",
+				"title": "%cmd.insertTemplate%",
+				"category": "Godot Shader",
+				"icon": "$(file-code)"
+			},
+			{
+				"command": "godotShader.showOutput",
+				"title": "%cmd.showOutput%",
+				"category": "Godot Shader",
+				"icon": "$(output)"
+			},
+			{
+				"command": "godotShader.reloadSymbols",
+				"title": "%cmd.reloadSymbols%",
+				"category": "Godot Shader",
+				"icon": "$(refresh)"
+			}
+		],
+		"menus": {
+			"editor/context": [
+				{
+					"command": "godotShader.expandIncludes",
+					"when": "editorLangId == godot-shader",
+					"group": "navigation@10"
+				},
+				{
+					"command": "godotShader.switchShaderType",
+					"when": "editorLangId == godot-shader",
+					"group": "navigation@11"
+				},
+				{
+					"command": "godotShader.insertTemplate",
+					"when": "editorLangId == godot-shader",
+					"group": "navigation@12"
+				},
+				{
+					"command": "godotShader.showOutput",
+					"when": "editorLangId == godot-shader",
+					"group": "z_commands@1"
+				}
+			],
+			"commandPalette": [
+				{
+					"command": "godotShader.expandIncludes",
+					"when": "editorLangId == godot-shader"
+				},
+				{
+					"command": "godotShader.switchShaderType",
+					"when": "editorLangId == godot-shader"
+				},
+				{
+					"command": "godotShader.insertTemplate",
+					"when": "editorLangId == godot-shader"
+				},
+				{
+					"command": "godotShader.reloadSymbols"
+				}
+			]
+		},
+		"keybindings": [
+			{
+				"command": "godotShader.expandIncludes",
+				"key": "ctrl+alt+e",
+				"mac": "cmd+alt+e",
+				"when": "editorLangId == godot-shader"
+			}
+		],
+		"semanticTokenScopes": [
+			{
+				"language": "godot-shader",
+				"scopes": {
+					"variable": [
+						"variable.other.readwrite.gdshader",
+						"variable.other.gdshader"
+					],
+					"property": [
+						"variable.other.property.gdshader",
+						"support.variable.gdshader"
+					],
+					"function": [
+						"entity.name.function.gdshader",
+						"support.function.gdshader"
+					],
+					"keyword": [
+						"keyword.control.gdshader",
+						"keyword.other.gdshader"
+					],
+					"type": [
+						"support.type.gdshader",
+						"storage.type.gdshader"
+					],
+					"parameter": [
+						"variable.parameter.gdshader"
+					],
+					"modifier": [
+						"storage.modifier.gdshader",
+						"entity.name.tag.gdshader"
+					]
+				}
+			}
+		],
+		"configurationDefaults": {
+			"[godot-shader]": {
+				"editor.tabSize": 4,
+				"editor.insertSpaces": true,
+				"editor.detectIndentation": false,
+				"editor.wordBasedSuggestions": "off",
+				"editor.semanticHighlighting.enabled": true,
+				"editor.bracketPairColorization.enabled": true,
+				"editor.quickSuggestions": {
+					"other": true,
+					"comments": false,
+					"strings": false
 				}
 			}
 		}
 	},
 	"devDependencies": {
-		"@types/vscode": "^1.85.0",
 		"@types/node": "^18.0.0",
+		"@types/vscode": "1.85.0",
 		"typescript": "^5.8.0"
-	}
+	},
+	"capabilities": {
+		"untrustedWorkspaces": {
+			"supported": true
+		},
+		"virtualWorkspaces": {
+			"supported": "limited",
+			"description": "Include resolution needs the local file system; everything else works."
+		}
+	},
+	"markdown": "github",
+	"qna": "marketplace"
 }

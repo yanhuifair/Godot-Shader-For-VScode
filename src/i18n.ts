@@ -133,6 +133,8 @@ zh['diag.not_available_in'] = "'{0}' 仅用于 {1} 着色器，在 {2} 中不可
 en['diag.not_available_in'] = "'{0}' is only available in {1} shader(s), not in {2}";
 zh['diag.duplicate_declaration'] = "重复声明 '{0}'（首次声明在第 {1} 行）";
 en['diag.duplicate_declaration'] = "Duplicate declaration of '{0}' (first declared at line {1})";
+zh['diag.first_declared_here'] = '首次声明于第 {0} 行';
+en['diag.first_declared_here'] = 'First declared at line {0}';
 zh['diag.const_must_init'] = "常量 '{0}' 必须初始化";
 en['diag.const_must_init'] = "'const' variable '{0}' must be initialized";
 zh['diag.global_var_must_init'] = "全局变量 '{0}' 必须初始化（或声明为 uniform/varying/const）";
@@ -194,9 +196,56 @@ en['hover.from_file'] = 'from {0}';
 en['link.open_include'] = 'Open {0}';
 en['hover.inspector_hint'] = 'Editable in the Inspector';
 
+// 自动导入
+zh['completion.auto_import'] = '自动导入';
+en['completion.auto_import'] = 'auto import';
+
+// include 展开预览
+zh['expand.header'] = '只读预览：所有 #include 已就地展开（原文件未被修改）';
+en['expand.header'] = 'Read-only preview: all #include files expanded inline (source untouched)';
+zh['expand.source'] = '源文件：{0}';
+en['expand.source'] = 'Source: {0}';
+zh['expand.expired'] = '预览已过期，请重新运行命令 Godot Shader: 展开 #include 预览';
+en['expand.expired'] = 'Preview expired — run "Godot Shader: Expand #include" again';
+zh['expand.too_deep'] = 'include 层级过深，已停止展开';
+en['expand.too_deep'] = 'Include depth limit reached, stopped expanding';
+zh['expand.unresolved'] = '无法解析 include 路径 "{0}"';
+en['expand.unresolved'] = 'Cannot resolve include path "{0}"';
+zh['expand.duplicate'] = '重复的 include "{0}"（已在上方展开，此处跳过）';
+en['expand.duplicate'] = 'Duplicate include "{0}" (already expanded above, skipped)';
+zh['expand.missing'] = '找不到文件 "{0}"';
+en['expand.missing'] = 'File not found "{0}"';
+zh['expand.need_shader_file'] = '请先打开一个 .gdshader 或 .gdshaderinc 文件';
+en['expand.need_shader_file'] = 'Open a .gdshader or .gdshaderinc file first';
+
+// 命令
+zh['cmd.switch_type.title'] = '切换 shader_type';
+en['cmd.switch_type.title'] = 'Switch shader_type';
+zh['cmd.switch_type.placeholder'] = '选择着色器类型';
+en['cmd.switch_type.placeholder'] = 'Pick a shader type';
+zh['cmd.template.title'] = '插入着色器模板';
+en['cmd.template.title'] = 'Insert shader template';
+zh['cmd.template.placeholder'] = '选择模板';
+en['cmd.template.placeholder'] = 'Pick a template';
+zh['cmd.template.canvas'] = '2D 画布着色器';
+en['cmd.template.canvas'] = '2D canvas shader';
+zh['cmd.template.spatial'] = '3D 空间着色器';
+en['cmd.template.spatial'] = '3D spatial shader';
+zh['cmd.template.sky'] = '程序化天空';
+en['cmd.template.sky'] = 'Procedural sky';
+zh['cmd.template.fog'] = '体积雾';
+en['cmd.template.fog'] = 'Volumetric fog';
+zh['cmd.template.particles'] = '粒子';
+en['cmd.template.particles'] = 'Particles';
+zh['cmd.reload.done'] = '符号缓存已重建';
+en['cmd.reload.done'] = 'Symbol caches reloaded';
+zh['output.expand_done'] = '已生成展开预览';
+en['output.expand_done'] = 'Expanded preview generated';
+zh['output.reloaded'] = '已重建 include 与工作区符号缓存';
+en['output.reloaded'] = 'Include and workspace symbol caches cleared';
+
 // include 补全标签
-zh['include.gdshaderinc'] = 'Godot Shader 包含文件';
-en['include.gdshaderinc'] = 'Godot Shader Include';
+zh['include.gdshaderinc'] = 'Godot Shader 包含文件';en['include.gdshaderinc'] = 'Godot Shader Include';
 zh['include.gdshader'] = 'Godot Shader 文件';
 en['include.gdshader'] = 'Godot Shader File';
 

@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.85%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.110-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.111-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -27,7 +27,7 @@ Full language support for Godot 4 shaders — **20 language providers**, **162 b
 **Repository:** <https://github.com/yanhuifair/Godot-Shader-For-VScode>
 **Marketplace:** <https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode>
 
-[Highlights](#highlights) · [Install](#install) · [Completion](#completion) · [Cross-file](#cross-file-support) · [Hover](#hover) · [Signature help](#signature-help) · [Inlay hints](#inlay-hints) · [CodeLens](#codelens) · [Diagnostics](#diagnostics) · [Formatting](#formatting) · [Navigation](#navigation) · [Visual](#visual-features) · [Quick fixes](#quick-fixes) · [Snippets](#snippets) · [Configuration](#configuration) · [Requirements](#requirements) · [Limitations](#known-limitations) · [FAQ](#faq) · [Development](#development)
+[Highlights](#highlights) · [Install](#install) · [Completion](#completion) · [Cross-file](#cross-file-support) · [Hover](#hover) · [Signature help](#signature-help) · [Inlay hints](#inlay-hints) · [CodeLens](#codelens) · [Diagnostics](#diagnostics) · [Formatting](#formatting) · [Navigation](#navigation) · [Commands](#commands) · [Visual](#visual-features) · [Quick fixes](#quick-fixes) · [Snippets](#snippets) · [Configuration](#configuration) · [Requirements](#requirements) · [Limitations](#known-limitations) · [FAQ](#faq) · [Development](#development)
 
 ---
 
@@ -38,6 +38,10 @@ Full language support for Godot 4 shaders — **20 language providers**, **162 b
   the built-ins.
 - **Cross-file by default** — symbols from `#include`d `.gdshaderinc` files (including transitive
   includes) resolve everywhere; renames also fix the declaration inside the included file.
+- **Auto-import** — symbols declared in other `.gdshaderinc` files of the workspace are completed
+  too, and the matching `#include` is inserted for you.
+- **One command away** — expand every include into a read-only preview, switch `shader_type`,
+  insert a template, reload symbol caches (command palette, context menu, `Ctrl+Alt+E`).
 - **Comment- and string-aware diagnostics** — 23 rules that never fire on text inside comments,
   strings or `#if 0` blocks.
 - **Real formatting** — switch/case indentation, operator spacing, brace style, CRLF preservation.
@@ -95,6 +99,9 @@ The list also contains **every symbol declared in the file**: uniforms, varyings
 structs, functions (inserted with parameter placeholders) and the locals/parameters of the function
 you are typing in — followed by the symbols coming from `#include`d files, tagged with their source.
 
+Symbols declared in **other `.gdshaderinc` files of the workspace** are offered as well — accepting
+one inserts the matching `#include` for you (toggle: `godot-shader.completion.autoImport`).
+
 ### Cross-file Support
 
 Symbols declared in `.gdshaderinc` files — including transitive includes — are resolved across the
@@ -122,6 +129,9 @@ void fragment() {
 
 Both `res://shaders/common.gdshaderinc` and `./common.gdshaderinc` forms are supported
 (`res://` is resolved against the workspace root).
+
+Run **Godot Shader: Expand #include** (`Ctrl+Alt+E`) to read the whole shader with every include
+expanded inline — a read-only virtual document, the original files stay untouched.
 
 ### Hover
 
@@ -169,7 +179,7 @@ uniform float strength;               // 3 references
 
 ### Diagnostics
 
-**23 rules**, all comment/string aware.
+**23 rules**, all comment/string aware. Unused declarations and deprecated functions are struck through; duplicate declarations link to the first one.
 
 ```glsl
 shader_type spatial;                  // ✅ valid
@@ -252,6 +262,18 @@ Preprocessor directives always stay at column 0, and `case`/`default` labels plu
 Other shortcuts: `Ctrl+Space` completion · `Shift+Alt+F` format document · `Ctrl+.` quick fix ·
 `Alt+Shift+→` expand selection.
 
+### Commands
+
+| Command | Shortcut | What it does |
+|---------|----------|--------------|
+| `Godot Shader: Expand #include` | `Ctrl+Alt+E` | Read-only preview with all includes expanded |
+| `Godot Shader: Switch shader_type` | — | Quick pick to replace (or insert) `shader_type` |
+| `Godot Shader: Insert Shader Template` | — | Insert a minimal template for the picked type |
+| `Godot Shader: Show Output Panel` | — | Include/command log — also opens when clicking the status bar |
+| `Godot Shader: Reload Symbol Caches` | — | Drop include & workspace symbol caches |
+
+The first three also appear in the editor context menu.
+
 ### Visual Features
 
 **Semantic highlighting** — every token class gets its own color:
@@ -328,6 +350,7 @@ void fragment() { …          // Quick Fix: add missing }
 | `godot-shader.diagnostics.checkBuiltinScope` | `true` | Validate built-in variable scope per shader type |
 | `godot-shader.diagnostics.strictMode` | `false` | Extra performance warnings (`discard`, `texture()` in loops) |
 | `godot-shader.formatting.braceNewLine` | `false` | Put `{` on its own line |
+| `godot-shader.completion.autoImport` | `true` | Complete symbols from other `.gdshaderinc` files and insert the `#include` |
 | `godot-shader.inlayHints.showParameterNames` | `true` | Show inline parameter name hints |
 | `godot-shader.colorPicker.enabled` | `true` | Show the color picker for color literals |
 

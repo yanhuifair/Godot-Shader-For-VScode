@@ -1,0 +1,7 @@
+{
+  "cmd.expandIncludes": "展开 #include（只读预览）",
+  "cmd.switchShaderType": "切换 shader_type",
+  "cmd.insertTemplate": "插入着色器模板",
+  "cmd.showOutput": "显示输出面板",
+  "cmd.reloadSymbols": "重建符号缓存"
+}
