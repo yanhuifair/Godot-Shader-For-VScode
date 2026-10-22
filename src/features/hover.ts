@@ -146,9 +146,13 @@ class HoverDoc {
         return this;
     }
 
-    /** glsl 代码块（声明 / 签名） */
+    /**
+     * 代码块（声明 / 签名）。
+     * fence 的语言 id 必须是本扩展注册的 `godot-shader`：
+     * 写成 `glsl` 时 VS Code 找不到对应语言的语法，会退化为纯文本，没有高亮。
+     */
     code(code: string): this {
-        this.parts.push('```glsl\n' + code + '\n```');
+        this.parts.push('```godot-shader\n' + code + '\n```');
         return this;
     }
 

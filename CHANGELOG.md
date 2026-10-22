@@ -4,6 +4,15 @@ All notable changes to **Godot Shader for VS Code** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.119] — 2026-10-22
+
+### Added
+
+- **Syntax highlighting inside hover code blocks.** The fences were tagged `glsl`, a language id VS Code
+  does not ship, so the blocks rendered as plain text. They now use `godot-shader` — this extension's
+  own grammar — so hover declarations, signatures and `#define` lines are tokenised and coloured with
+  the active theme. The same applies to `@shader /docs` and `/expand` output in chat.
+
 ## [1.0.118] — 2026-10-22
 
 Hover overhaul: one layout for everything, plus the missing hover targets.

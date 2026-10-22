@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.118-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.119-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -157,7 +157,8 @@ MAX_STEPS                             // 悬停 → #define 原文、展开值�
 #ifdef                                // 悬停 → 该指令的作用
 ```
 
-注释与字符串里不会弹出符号说明。
+悬停里的代码块会用本扩展**自己的语法**高亮 —— fence 写的是 `godot-shader` 语言 id（不是 `glsl`，
+VS Code 没有内置 GLSL 语言，写 `glsl` 会退化成纯文本）。注释与字符串里不会弹出符号说明。
 
 ### 签名帮助
 

@@ -69,7 +69,7 @@ function docsMarkdown(rawName: string): string {
         return [
             `### \`${fn.name}\``,
             '',
-            '```glsl\n' + fn.signature + '\n```',
+            '```godot-shader\n' + fn.signature + '\n```',
             '',
             td(fn.name, fn.description)
         ].join('\n');
@@ -100,7 +100,7 @@ export function registerChatParticipant(context: vscode.ExtensionContext): void 
             switch (request.command) {
                 case 'expand': {
                     if (!document) { stream.markdown(t('chat.need_shader_file')); return; }
-                    stream.markdown('```glsl\n' + buildExpandedShader(document) + '\n```');
+                    stream.markdown('```godot-shader\n' + buildExpandedShader(document) + '\n```');
                     return;
                 }
                 case 'uniforms': {

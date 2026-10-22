@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.118-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.119-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -162,7 +162,9 @@ MAX_STEPS                             // hover → #define line, expanded value 
 #ifdef                                // hover → what the directive does
 ```
 
-Comments and string literals never show symbol hovers.
+Code blocks inside hovers are syntax-highlighted with this extension's own grammar (the fence uses the
+`godot-shader` language id, not `glsl` — VS Code has no built-in GLSL language). Comments and string
+literals never show symbol hovers.
 
 ### Signature Help
 
