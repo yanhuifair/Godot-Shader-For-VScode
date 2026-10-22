@@ -417,7 +417,6 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
                         .code(line)
                         .meta([[t('hover.kind_label'), t('hover.kind.macro')]]);
                     if (value) doc.label(t('hover.macro_value'), '`' + value + '`');
-                    doc.label(t('hover.declared_line'), String(position.line + 1));
                     return doc.build(range);
                 }
             }
@@ -611,12 +610,8 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
             if (f.params.length > 0) {
                 doc.label(t('hover.params'), f.params.map(p => p.type ? `\`${p.name}: ${p.type}\`` : `\`${p.name}\``).join(' · '));
             }
-            const location = f.line + 1;
             if (funcEntry.origin) {
                 doc.label(t('hover.from_file', funcEntry.origin.label), '');
-                doc.label(t('hover.declared_line'), String(location));
-            } else {
-                doc.label(t('hover.declared_line'), String(location));
             }
             return doc.build(range);
         }
@@ -675,7 +670,6 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
             if (varEntry.origin) {
                 doc.label(t('hover.from_file', varEntry.origin.label), '');
             }
-            doc.label(t('hover.declared_line'), String(v.line + 1));
             return doc.build(range);
         }
 
@@ -740,8 +734,7 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
         const doc = new HoverDoc()
             .title(`${struct.name}.${field.name}`)
             .code(`${field.type} ${field.name};`)
-            .meta([[t('type_label'), '`' + field.type + '`'], [t('hover.field_of'), '`' + struct.name + '`']])
-            .label(t('hover.declared_line'), String(field.line + 1));
+            .meta([[t('type_label'), '`' + field.type + '`'], [t('hover.field_of'), '`' + struct.name + '`']]);
         if (origin) doc.quote(t('hover.from_file', origin.label));
         return doc.build(range);
     }
@@ -816,7 +809,6 @@ export class GodotShaderHoverProvider implements vscode.HoverProvider {
             .code(macro.text)
             .meta([[t('hover.kind_label'), t('hover.kind.macro')]]);
         if (macro.value) doc.label(t('hover.macro_value'), '`' + macro.value + '`');
-        doc.label(t('hover.declared_line'), String(macro.line + 1));
         if (macro.origin) doc.quote(t('hover.from_file', macro.origin.label));
         return doc.build(range);
     }

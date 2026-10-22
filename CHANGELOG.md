@@ -4,6 +4,15 @@ All notable changes to **Godot Shader for VS Code** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.120] — 2026-10-23
+
+### Changed
+
+- **Hover tooltips no longer show a `Line:` row.** The line number duplicated information already
+  visible in the editor gutter and made every hover one row longer. Removed from variables, function
+  parameters/locals, struct fields, functions and `#define` macros. Hovers for symbols coming from an
+  `#include` still say which file they come from.
+
 ## [1.0.119] — 2026-10-22
 
 ### Added
