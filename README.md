@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.116-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.117-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -342,20 +342,26 @@ language model you pick in the chat view (if any).
 
 ### Visual Features
 
-**Semantic highlighting** — every token class gets its own color:
+**Semantic highlighting** — seven token classes, layered on top of the TextMate grammar
+(keyword · type · variable · property · function · parameter · modifier):
 
 ```glsl
-uniform float strength;     // keyword  | type  | variable name
-COLOR = vec3(1.0, 0.5, 0.2); // built-in | type | number | number | number
-void fragment() { … }       // keyword  | function name
+shader_type spatial;                      // keyword | type
+render_mode blend_mix, disable_force;     // keyword | modifier | modifier
+uniform sampler3D volume : filter_linear; // keyword | type | variable | modifier
+struct Light { vec3 dir; };               // keyword | type | type | property
+float f(float gain) { return gain; }      // type | function | parameter | keyword
+ALBEDO = COLOR.rgb * f(1.0);              // property | property.swizzle | function | number
 ```
 
-**`#if 0` dimming** — disabled blocks are scoped as comments, so they fade out:
+**`#if 0` dimming** — only the disabled branch fades out; `#else` / `#elif` branches keep
+their normal colors:
 
 ```glsl
 #if 0
-// Everything here is dimmed
-vec3 disabled_color = vec3(1.0, 0.0, 0.0);
+vec3 disabled = vec3(1.0, 0.0, 0.0);   // dimmed
+#else
+ALBEDO = vec3(1.0);                    // normal colors
 #endif
 ```
 
@@ -451,7 +457,7 @@ Every fixable diagnostic can also be applied in one go: run **Source Action… �
   (`#if`) is not evaluated when building the symbol graph.
 - **Renaming a shared include symbol rewrites the include file**, so other shaders that include it are
   affected too — that is how `#include` works, not something the extension can scope down.
-- **`#if 0` dimming is block-level**: a nested `#endif` inside a disabled block ends the dimming early.
+- **`#if 0` dimming is literal**: only a literal `#if 0` (or `#if false`) is recognised — `#ifdef SOME_UNDEFINED_MACRO` is left as is — and a nested `#endif` inside a disabled block ends the dimming early.
 - **Call hierarchy is scoped to the current include graph** — it does not scan every `.gdshader`
   in the workspace, so callers in unrelated files are not listed.
 - **Color picker** understands `vec3(r, g, b)`, `vec4(r, g, b, a)` and `#RRGGBB` / `#RRGGBBAA`

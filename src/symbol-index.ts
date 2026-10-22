@@ -91,10 +91,30 @@ export function buildDocIndex(codeLines: string[], rawLines: string[]): DocIndex
             if (depth === 0) { endLine = k; break; }
         }
 
+        // 字段：从 `{` 到匹配的 `}` 之间按语句解析，
+        // 这样 `struct S { vec3 a; float b; };` 这种单行写法也能拿到字段
         const fields: Array<{ name: string; type: string; line: number }> = [];
-        for (let k = i + 1; k < endLine; k++) {
-            const f = codeLines[k].trim().match(/^(\w+)\s+(\w+)\s*(\[[^\]]*\])?\s*;/);
-            if (f) fields.push({ name: f[2], type: f[1], line: k });
+        let innerDepth = 0;
+        let started = false;
+        for (let k = i; k <= endLine; k++) {
+            const text = codeLines[k];
+            let segment = '';
+            for (let c = 0; c < text.length; c++) {
+                const ch = text[c];
+                if (!started) {
+                    if (ch === '{') { started = true; innerDepth = 1; }
+                    continue;
+                }
+                if (ch === '{') { innerDepth++; continue; }
+                if (ch === '}') { innerDepth--; if (innerDepth === 0) break; continue; }
+                segment += ch;
+            }
+            if (segment.trim()) {
+                for (const f of segment.matchAll(/(\w+)\s+(\w+)\s*(?:\[[^\]]*\])?\s*;/g)) {
+                    fields.push({ name: f[2], type: f[1], line: k });
+                }
+            }
+            if (started && innerDepth === 0) break;
         }
         structs.push({ name: m[1], line: i, endLine, fields });
     }

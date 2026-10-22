@@ -491,7 +491,9 @@ export const GODOT_SHADER_TYPES = [
     "uvec2", "uvec3", "uvec4",
     "bvec2", "bvec3", "bvec4",
     "mat2", "mat3", "mat4",
-    "sampler2D", "sampler2DArray", "samplerCube", "samplerExternalOES"
+    // 采样器：Godot 4 支持 3D / CubeArray / Depth 变体
+    "sampler2D", "sampler2DArray", "sampler2DDepth", "sampler2DArrayDepth",
+    "sampler3D", "samplerCube", "samplerCubeArray", "samplerExternalOES"
 ];
 
 export const GODOT_SHADER_KEYWORDS = [
@@ -735,6 +737,10 @@ export const GODOT_SHADER_TYPE_INFO: {[key: string]: {category: string, desc: st
     'sampler2D': { category: 'Sampler', desc: '2D 纹理采样器。用于读取 uniform 绑定的 2D 纹理。只能用于 uniform 声明。' },
     'samplerCube': { category: 'Sampler', desc: '立方体贴图采样器。用于读取环境贴图、天空盒纹理。只能用于 uniform 声明。' },
     'sampler2DArray': { category: 'Sampler', desc: '2D 纹理数组采样器。可同时访问多个纹理层。只能用于 uniform 声明。' },
+    'sampler2DDepth': { category: 'Sampler', desc: '2D 深度纹理采样器（Texture2DRD / 深度附件）。只能用于 uniform 声明。' },
+    'sampler2DArrayDepth': { category: 'Sampler', desc: '2D 深度纹理数组采样器。只能用于 uniform 声明。' },
+    'sampler3D': { category: 'Sampler', desc: '3D 纹理（体积纹理）采样器，配合 Texture3D 使用。只能用于 uniform 声明。' },
+    'samplerCubeArray': { category: 'Sampler', desc: '立方体贴图数组采样器，索引为 vec4（xyz 方向 + w 层号）。只能用于 uniform 声明。' },
     'samplerExternalOES': { category: 'Sampler', desc: '外部 OES 纹理采样器（Android/移动平台）。只能用于 uniform 声明。' }
 };
 

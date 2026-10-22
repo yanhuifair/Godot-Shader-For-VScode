@@ -199,10 +199,10 @@ export function collectFuncBlocks(codeLines: string[]): FuncBlock[] {
     for (let i = 0; i < codeLines.length; i++) {
         const code = codeLines[i];
 
-        // 函数头：`返回类型 名称(参数)`，`{` 可以在行尾也可以在下一行
+        // 函数头：`返回类型 名称(参数)`，`{` 可以在行尾、下一行，或与函数体写在同一行
         const header = code.trim();
         const firstToken = (header.match(/^(\w+)/) || [])[1] || '';
-        const headerMatch = header.match(/^(?:\w+\s+)*(\w+)\s*\(([^)]*)\)\s*\{?\s*$/);
+        const headerMatch = header.match(/^(?:\w+\s+)+(\w+)\s*\(([^)]*)\)\s*(\{.*)?$/);
         if (headerMatch && !CONTROL_KEYWORDS.test(firstToken) && !CONTROL_KEYWORDS.test(headerMatch[1])) {
             pendingHeader = {
                 name: headerMatch[1],

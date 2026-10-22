@@ -127,7 +127,7 @@
           "name": "keyword.control.preprocessor.gdshader"
         }
       },
-      "end": "^(\\s*)(#\\s*endif\\b)",
+      "end": "^(\\s*)(#\\s*(?:else|elif|endif)\\b)",
       "endCaptures": {
         "2": {
           "name": "keyword.control.preprocessor.gdshader"
@@ -148,11 +148,11 @@
       "patterns": [
         {
           "name": "keyword.control.gdshader",
-          "match": "\\b(shader_type|render_mode|stencil_mode|void|return|if|else|for|while|do|break|continue|switch|case|default|discard|true|false)\\b"
+          "match": "\\b(shader_type|render_mode|stencil_mode|group_uniforms|void|return|if|else|for|while|do|break|continue|switch|case|default|discard|true|false)\\b"
         },
         {
           "name": "keyword.other.gdshader",
-          "match": "\\b(in|out|inout|uniform|varying|const|struct)\\b"
+          "match": "\\b(in|out|inout|uniform|varying|const|struct|global|instance|flat|smooth)\\b"
         }
       ]
     },
@@ -160,7 +160,7 @@
       "patterns": [
         {
           "name": "storage.type.gdshader",
-          "match": "\\b(vec2|vec3|vec4|ivec2|ivec3|ivec4|uvec2|uvec3|uvec4|bvec2|bvec3|bvec4|float|int|uint|bool|mat2|mat3|mat4|sampler2D|samplerCube|sampler2DArray|samplerExternalOES)\\b"
+          "match": "\\b(vec2|vec3|vec4|ivec2|ivec3|ivec4|uvec2|uvec3|uvec4|bvec2|bvec3|bvec4|float|int|uint|bool|mat2|mat3|mat4|sampler2DArrayDepth|sampler2DArray|sampler2DDepth|sampler2D|sampler3D|samplerCubeArray|samplerCube|samplerExternalOES)\\b"
         }
       ]
     },
@@ -264,7 +264,7 @@
       "patterns": [
         {
           "name": "storage.modifier.rendermode.gdshader",
-          "match": "\\b(alpha_to_coverage|alpha_to_coverage_and_one|ambient_light_disabled|ambient_light_enabled|blend_add|blend_mix|blend_mul|blend_premul_alpha|blend_sub|cull_back|cull_disabled|cull_front|debug_shadow_splits|depth_draw_alpha_prepass|depth_draw_always|depth_draw_never|depth_draw_opaque|depth_prepass_alpha|depth_test_default|depth_test_disabled|depth_test_inverted|diffuse_burley|diffuse_lambert|diffuse_lambert_wrap|diffuse_toon|disable_fog|do_not_delay_visibility|ensure_correct_normals|fog_disabled|light_disabled|light_enabled|particle_collisions_disabled|particle_collisions_enabled|particle_trails|shadow_to_opacity|shadows_disabled|shadows_enabled|skip_vertex_transform|specular_disabled|specular_schlick_ggx|specular_toon|sss_mode_skin|unshaded|use_half_res_pass|use_quarter_res_pass|vertex_lighting|wireframe|world_vertex_coords)\\b"
+          "match": "\\b(alpha_to_coverage|alpha_to_coverage_and_one|ambient_light_disabled|ambient_light_enabled|blend_add|blend_mix|blend_mul|blend_premul_alpha|blend_sub|cull_back|cull_disabled|cull_front|debug_shadow_splits|depth_draw_alpha_prepass|depth_draw_always|depth_draw_never|depth_draw_opaque|depth_prepass_alpha|depth_test_default|depth_test_disabled|depth_test_inverted|diffuse_burley|diffuse_lambert|diffuse_lambert_wrap|diffuse_toon|disable_fog|do_not_delay_visibility|ensure_correct_normals|fog_disabled|light_disabled|light_enabled|particle_collisions_disabled|collision_use_scale|disable_force|disable_velocity|particle_collisions_use_depth|particle_collisions_enabled|particle_trails|shadow_to_opacity|shadows_disabled|shadows_enabled|skip_vertex_transform|specular_disabled|specular_schlick_ggx|specular_toon|sss_mode_skin|unshaded|use_half_res_pass|use_quarter_res_pass|vertex_lighting|wireframe|world_vertex_coords)\\b"
         }
       ]
     },
@@ -288,7 +288,7 @@
       "patterns": [
         {
           "name": "storage.modifier.hint.gdshader",
-          "match": "\\b(source_color|hint_default_white|hint_default_black|hint_default_transparent|hint_normal|hint_depth_texture|hint_screen_texture|hint_anisotropy|hint_normal_roughness_texture|hint_roughness_r|hint_roughness_g|hint_roughness_b|hint_roughness_a|hint_roughness_normal|hint_roughness_gray|hint_range|hint_enum|hint_multiline_text|hint_file|hint_dir|filter_nearest|filter_linear|filter_nearest_mipmap|filter_linear_mipmap|repeat_enable|repeat_disable|instance_index)\\b"
+          "match": "\\b(source_color|hint_default_white|hint_default_black|hint_default_transparent|hint_normal|hint_depth_texture|hint_screen_texture|hint_anisotropy|hint_normal_roughness_texture|hint_roughness_r|hint_roughness_g|hint_roughness_b|hint_roughness_a|hint_roughness_normal|hint_roughness_gray|hint_range|hint_enum|hint_multiline_text|hint_file|hint_dir|filter_nearest|filter_linear|filter_nearest_mipmap|filter_linear_mipmap|filter_nearest_mipmap_anisotropic|filter_linear_mipmap_anisotropic|repeat_enable|repeat_disable|instance_index)\\b"
         }
       ]
     },

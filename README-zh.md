@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.116-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.117-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -330,20 +330,25 @@ void fragment() { COLOR = vec4(wave(UV)); }        // 调用 wave
 
 ### 视觉特性
 
-**语义高亮** —— 每类 token 使用不同颜色：
+**语义高亮** —— 在 TextMate 语法之上细分为 7 类
+（关键字 · 类型 · 变量 · 属性 · 函数 · 参数 · 修饰符）：
 
 ```glsl
-uniform float strength;     // 关键字 | 类型 | 变量名
-COLOR = vec3(1.0, 0.5, 0.2); // 内置变量 | 类型 | 数字 | 数字 | 数字
-void fragment() { … }       // 关键字 | 函数名
+shader_type spatial;                      // 关键字 | 类型
+render_mode blend_mix, disable_force;     // 关键字 | 修饰符 | 修饰符
+uniform sampler3D volume : filter_linear; // 关键字 | 类型 | 变量 | 修饰符
+struct Light { vec3 dir; };               // 关键字 | 类型 | 类型 | 属性
+float f(float gain) { return gain; }      // 类型 | 函数 | 参数 | 关键字
+ALBEDO = COLOR.rgb * f(1.0);              // 属性 | 属性.分量 | 函数 | 数字
 ```
 
-**`#if 0` 变灰** —— 禁用的块按注释作用域着色，视觉上淡化：
+**`#if 0` 变灰** —— 只淡化被禁用的那一支，`#else` / `#elif` 分支保持正常着色：
 
 ```glsl
 #if 0
-// 这里的所有内容都会变灰
-vec3 disabled_color = vec3(1.0, 0.0, 0.0);
+vec3 disabled = vec3(1.0, 0.0, 0.0);   // 变灰
+#else
+ALBEDO = vec3(1.0);                    // 正常着色
 #endif
 ```
 
@@ -436,7 +441,8 @@ atan2(1.0, 2.0)               // 快速修复：改为 atan
 - **`#include` 按文本解析**：所有 `#include` 行都会被跟进，构建符号表时不求值条件编译（`#if`）。
 - **重命名共享 include 里的符号会改写该文件**，因此其它 include 它的着色器同样受影响 —— 这是
   `#include` 的语义，插件无法只改一处。
-- **`#if 0` 变灰是块级的**：若禁用块内部还有嵌套 `#endif`，变灰会提前结束。
+- **`#if 0` 变灰只认字面量**：仅识别 `#if 0` / `#if false`，`#ifdef 未定义宏` 不变灰；
+  禁用块内若还有嵌套 `#endif`，变灰会提前结束。
 - **调用层次只搜当前 include 图**：不会扫描工作区所有 `.gdshader`，
   无关文件里的调用不会列出。
 - **取色器**只识别 `vec3(r, g, b)`、`vec4(r, g, b, a)` 与 `#RRGGBB` / `#RRGGBBAA` 字面量，

@@ -4,6 +4,46 @@ All notable changes to **Godot Shader for VS Code** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.117] — 2026-10-22
+
+Highlighting pass: the semantic layer was overriding TextMate scopes that were already correct.
+
+### Fixed
+
+- **`shader_type` values coloured as variables** — `spatial`, `canvas_item`, `sky`, `fog`,
+  `particles` are now `type` (they were downgraded from `entity.name.type` by the semantic layer).
+- **`render_mode` values coloured as variables** — `blend_mix`, `cull_back`, `unshaded`, … are now
+  `modifier`, matching what `stencil_mode` values already did.
+- **Swizzles coloured as variables** — `COLOR.rgb` / `pos.xy` components are now `property`
+  (previously flattened to `variable`, losing the `variable.other.swizzle` scope).
+- **`sampler3D`, `samplerCubeArray`, `sampler2DDepth`, `sampler2DArrayDepth`** were missing from the
+  type table and the grammar, so they were coloured as variables and never completed. Added to
+  `shader-data`, the grammar, and the hover descriptions.
+- **`#if 0` … `#else` dimmed the live branch.** The TextMate block now ends at `#else` / `#elif`, and
+  the semantic side had an off-by-one that left the last disabled line coloured.
+- **Grammar missed five keywords** — `global`, `instance`, `group_uniforms`, `flat`, `smooth` had no
+  TextMate scope (only semantic colour), so they went plain whenever semantic highlighting was off.
+- **Grammar list drift** — added the two anisotropic filters and four particle `render_mode` values.
+- **Single-letter variables got no semantic token** (`x`, `i`, `n`), so they rendered in a different
+  colour from `col`. Length-1 identifiers are now classified like any other.
+- **Function parameters were coloured as variables** — the `parameter` token type declared in the
+  legend was never emitted.
+- **`declaration` modifier landed on the type word** instead of the declared name, and
+  `global uniform` / `instance uniform` variables lost both `declaration` and `readonly`.
+- **Struct field declarations** were `variable`; they are now `property`.
+
+### Fixed (parser, affects more than highlighting)
+
+- **One-line functions (`float f(float a) { return a; }`) were not indexed at all** — no hover,
+  completion, go-to-definition, outline or signature help for them.
+- **One-line structs (`struct S { vec3 a; };`) produced no fields** — no field completion, hover or
+  outline children.
+
+### Docs
+
+- README (both languages) now documents the seven semantic token classes and the `#if 0` / `#else`
+  behaviour; the known-limitations note says only literal `#if 0` is dimmed.
+
 ## [1.0.116] — 2026-10-21
 
 Full audit pass: fixed false positives, dead ends and several cases where two features disagreed.
