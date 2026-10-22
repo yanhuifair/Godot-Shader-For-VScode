@@ -332,7 +332,7 @@ export const GODOT_SHADER_FUNCTIONS = [
     { name: "textureArray", signature: "textureArray(sampler2DArray tex, vec3 uvw)", description: "采样 2D 纹理数组" },
     
     // 数学函数 - 插值
-    { name: "mix", signature: "mix(vecX x, vecX y, float|vecX a)", description: "线性插值（GLSL 语义 mix(x, y, a)）。a=0 返回 x，a=1 返回 y；支持 float 或逐分量混合" },
+    { name: "mix", signature: "mix(vecX x, vecX y, float|vecX a)", description: "线性插值（GLSL 语义 mix(x, y, a)）：a=0 返回 x，a=1 返回 y，a 可以是 float 或与 x/y 同类型的向量（逐分量混合）" },
     { name: "clamp", signature: "clamp(vecX x, vecX|float min, vecX|float max)", description: "钳制数值到 [min, max] 范围。支持 vecX 和 float 参数" },
     { name: "step", signature: "step(float|vecX edge, float|vecX x)", description: "阶跃函数（x < edge 返回 0，否则返回 1）。支持 float 和 vecX 参数" },
     { name: "smoothstep", signature: "smoothstep(float edge0, float edge1, float|vecX x)", description: "平滑阶跃函数（Hermite 插值）。支持 float 和 vecX 参数" },
@@ -937,7 +937,7 @@ export const GODOT_SHADER_FUNCTION_RETURNS: Record<string, { zh: string; en: str
     'min': { zh: '较小者', en: 'the smaller of a, b' },
     'max': { zh: '较大者', en: 'the larger of a, b' },
     'clamp': { zh: '[min, max]', en: '[min, max]' },
-    'mix': { zh: 'a + t·(b-a)', en: 'a + t·(b-a)' },
+    'mix': { zh: 'x + a·(y-x)', en: 'x + a·(y-x)' },
     'step': { zh: '{0, 1}', en: '{0, 1}' },
     'smoothstep': { zh: '[0, 1]', en: '[0, 1]' },
     'length': { zh: '[0, +∞)', en: '[0, +∞)' },

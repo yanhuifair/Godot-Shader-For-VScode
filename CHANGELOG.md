@@ -4,6 +4,44 @@ All notable changes to **Godot Shader for VS Code** are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and
 [Semantic Versioning](https://semver.org/).
 
+## [1.0.118] — 2026-10-22
+
+Hover overhaul: one layout for everything, plus the missing hover targets.
+
+### Added
+
+- **Uniform layout** for every hover: title → `glsl` declaration block → fact line
+  (`Type` · `Kind` · `Hint` · `Role` · `Available in` · `Line`) → description.
+- **`Role` for built-ins**, derived from the data tables: `output of fragment()` · `read in light()`,
+  so you can see where a name is writable without guessing.
+- **Macro hover** — `#define` is now recognised at the definition *and* at every use site, including
+  macros coming from an included file.
+- **`#include "…"` hover** — resolved path, exported symbol count, or “file not found”.
+- **Preprocessor directive hover** — `#ifdef`, `#else`, `#endif`, `#pragma`, `#error`, …
+- **Struct field declaration hover** — previously only `obj.field` worked; now the declaration inside
+  the struct body does too.
+- **Field owner resolution** — `a.v` vs `b.v` are resolved through the variable's actual type instead
+  of “first struct that has a field with this name”.
+
+### Fixed
+
+- **Function parameters showed the whole function header** as their declaration (`float apply(float
+  gain) { … }`); they now show `float gain`.
+- **`local float local`** — internal keyword `local` leaked into the hover text.
+- **“User-declared variable”** filler description replaced by real facts (kind, owning function,
+  declaration line, hint description).
+- **Hint descriptions fell back to Chinese** in English mode whenever the hint had arguments
+  (`hint_range(0.0, 1.0)`); the lookup now uses the hint name.
+- **`stencil_mode` in `canvas_item`** told you to “add a shader_type declaration” even though one was
+  present; it now says the current type doesn't support it.
+- **`mix()`** description and return value still used the pre-audit `a, b, t` parameter names.
+- Hover no longer pops up inside comments or string literals; `#include` paths are still hoverable.
+
+### Changed
+
+- No more `<strong>` HTML in hovers — the current shader type is bold inline code, so the tooltip
+  renders the same in every theme.
+
 ## [1.0.117] — 2026-10-22
 
 Highlighting pass: the semantic layer was overriding TextMate scopes that were already correct.

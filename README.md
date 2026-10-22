@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.117-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.118-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -146,19 +146,23 @@ expanded inline — a read-only virtual document, the original files stay untouc
 
 ### Hover
 
-Type, description, available shader types, return ranges and usage examples — plus everything you
-declared yourself.
+Every hover uses the same layout — a **title**, a **GLSL declaration block**, then facts
+(`Type` / `Kind` / `Hint` / `Role` / `Available in` / `Line`) and finally the description.
 
 ```glsl
-sin(                                  // hover → Signature: sin(float x)
-dot(normal, light_dir)                // hover → Returns: scalar | Example: dot(normal, light_dir)
-COLOR                                 // hover → Type: vec4 | Available in: canvas_item, spatial
-tint_sample(uv, amt)                  // hover → your signature, parameters and the comment above it
-tint                                  // hover → uniform vec4 tint | Hint: source_color | Editable in the Inspector
-LightData                             // hover → struct fields and where it is used
-main_light.direction                  // hover → field type
-group_uniforms                        // hover → keyword documentation
+sin(                                  // hover → signature block + Returns + Example
+ALBEDO                                // hover → vec3 ALBEDO | Role: output of fragment() · read in light()
+                                      //         Available in: fog, **spatial** (current one bold)
+tint                                  // hover → the declaration line, Kind: Uniform, Hint: source_color (with its description)
+tint_sample(uv, amt)                  // hover → your signature, parameters, doc comment and line number
+LightData                             // hover → struct body, field count and where it is used
+main_light.direction                  // hover → owner resolved from the variable type: vec3 dir | In struct: Light
+MAX_STEPS                             // hover → #define line, expanded value and line number
+#include "common.gdshaderinc"         // hover → resolved path, exported symbol count, or "file not found"
+#ifdef                                // hover → what the directive does
 ```
+
+Comments and string literals never show symbol hovers.
 
 ### Signature Help
 

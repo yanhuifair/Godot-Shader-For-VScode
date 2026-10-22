@@ -5,7 +5,7 @@
 
 ![VS Code](https://img.shields.io/badge/VS%20Code-1.100%2B-007ACC?logo=visualstudiocode&logoColor=white)
 ![Godot](https://img.shields.io/badge/Godot-4.x-478CBF?logo=godotengine&logoColor=white)
-![Version](https://img.shields.io/badge/version-1.0.117-2ea44f)
+![Version](https://img.shields.io/badge/version-1.0.118-2ea44f)
 ![License](https://img.shields.io/badge/license-AGPL--3.0-blue)
 ![Stars](https://img.shields.io/github/stars/yanhuifair/Godot-Shader-For-VScode?style=flat-square)
 [![Marketplace](https://img.shields.io/badge/VS%20Code%20Marketplace-Install-blue?logo=visualstudio)](https://marketplace.visualstudio.com/items?itemName=fairyan.godot-shader-for-vscode)
@@ -141,18 +141,23 @@ void fragment() {
 
 ### 悬停
 
-类型、描述、可用的着色器类型、返回值范围与使用示例 —— 以及你自己声明的一切。
+所有悬停统一版式：**标题** → **GLSL 声明代码块** → 事实行（`类型` / `种类` / `提示` / `角色` /
+`适用范围` / `所在行`）→ 描述。
 
 ```glsl
-sin(                                  // 悬停 → 签名：sin(float x)
-dot(normal, light_dir)                // 悬停 → 返回：标量 | 示例：dot(normal, light_dir)
-COLOR                                 // 悬停 → 类型：vec4 | 可用：canvas_item、spatial
-tint_sample(uv, amt)                  // 悬停 → 自己的签名、参数与上方的注释
-tint                                  // 悬停 → uniform vec4 tint | 提示：source_color | 可在检查器中编辑
-LightData                             // 悬停 → struct 字段与使用位置
-main_light.direction                  // 悬停 → 字段类型
-group_uniforms                        // 悬停 → 关键字说明
+sin(                                  // 悬停 → 签名代码块 + 返回值 + 示例
+ALBEDO                                // 悬停 → vec3 ALBEDO | 角色：fragment() 输出 · light() 中只读
+                                      //         适用：fog、**spatial**（当前类型加粗）
+tint                                  // 悬停 → 声明原文、种类：Uniform、提示：source_color（带说明）
+tint_sample(uv, amt)                  // 悬停 → 自己的签名、参数、上方注释与行号
+LightData                             // 悬停 → struct 结构、字段数与使用位置
+main_light.direction                  // 悬停 → 按变量类型定位归属：vec3 dir | 所属结构体：Light
+MAX_STEPS                             // 悬停 → #define 原文、展开值与行号
+#include "common.gdshaderinc"         // 悬停 → 解析后的路径、导出的符号数，或「文件不存在」
+#ifdef                                // 悬停 → 该指令的作用
 ```
+
+注释与字符串里不会弹出符号说明。
 
 ### 签名帮助
 

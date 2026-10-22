@@ -160,7 +160,7 @@ export const EN_DESCRIPTIONS: Record<string, string> = {
     "textureCube": "Sample a cubemap texture",
     "textureCubeLod": "Sample a cubemap texture with explicit LOD",
     "textureArray": "Sample a 2D texture array",
-    "mix": "Linear interpolation. Two modes: mix(a, b, float t) scalar blend, mix(a, b, vecX t) component-wise blend",
+    "mix": "Linear interpolation (GLSL semantics: mix(x, y, a)). a=0 returns x, a=1 returns y; a may be a float or a vector of the same type as x/y for component-wise blending",
     "clamp": "Clamp value to [min, max] range. Supports vecX and float parameters",
     "step": "Step function (returns 0 if x < edge, 1 otherwise). Supports float and vecX parameters",
     "smoothstep": "Smooth step function (Hermite interpolation). Supports float and vecX parameters",
